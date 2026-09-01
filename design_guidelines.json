@@ -1,0 +1,108 @@
+{
+  "project_name": "MY HARDWARES",
+  "theme": "light",
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "weights": ["300", "400", "500", "700"],
+      "letter_spacing": "tracking-tight",
+      "instruction": "Do not use Inter/Roboto. Use Outfit for all headings. Ensure tight tracking for headings > 32px for a premium modern geometric look."
+    },
+    "body": {
+      "font_family": "Plus Jakarta Sans, sans-serif",
+      "weights": ["400", "500", "600"],
+      "instruction": "Use Plus Jakarta Sans for high legibility, clean structure, and premium feel."
+    }
+  },
+  "colors": {
+    "primary": {
+      "brand_orange": "#FF5E1A",
+      "brand_orange_hover": "#E04D12",
+      "brand_orange_light": "#FFF0EA",
+      "gradient": "bg-gradient-to-r from-[#FF5E1A] to-[#FF8C5A]"
+    },
+    "environment": {
+      "white": "#FFFFFF",
+      "warm_white": "#F9F8F6",
+      "light_gray": "#F3F4F6",
+      "border": "#E5E7EB"
+    },
+    "text": {
+      "main": "#1A1A1A",
+      "muted": "#52525B",
+      "inverse": "#FFFFFF"
+    },
+    "instruction": "Strictly NO dark-theme dominance. Black is only for very minimal accents or primary typography. Environment must feel bright, airy, and premium."
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+      "hover": "shadow-[0_20px_40px_rgb(255,94,26,0.08)]",
+      "dropdown": "shadow-[0_10px_40px_rgb(0,0,0,0.08)]"
+    },
+    "borders": {
+      "radius": "rounded-2xl",
+      "style": "border border-gray-100"
+    },
+    "surfaces": {
+      "glass": "backdrop-blur-xl bg-white/85 border-b border-gray-100",
+      "card": "bg-white rounded-2xl shadow-sm border border-gray-50 hover:shadow-[0_20px_40px_rgb(0,0,0,0.06)] transition-shadow duration-300"
+    }
+  },
+  "motion": {
+    "philosophy": "Smooth, elegant, unobtrusive. Fast but graceful.",
+    "transitions": {
+      "default": "transition-all duration-300 ease-out",
+      "hover": "transition-transform duration-300 ease-out hover:-translate-y-1"
+    },
+    "framer_motion": {
+      "page_load": "initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}",
+      "stagger": "staggerChildren: 0.1",
+      "heart_wishlist": "whileTap={{ scale: 0.8 }} animate={{ scale: isActive ? 1.2 : 1 }}",
+      "cart_badge": "initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }}"
+    }
+  },
+  "layouts": {
+    "spacing": "Generous. Use p-8, p-12 for sections. Container max-w-7xl mx-auto.",
+    "hero": "Split layout: Left content (eyebrow, massive H1, description, dual CTAs). Right floating hardware composition with subtle parallax and orange geometric accents.",
+    "product_grid": "Grid cols-1 sm:cols-2 lg:cols-4 gap-8. High quality images on warm white background.",
+    "admin_dashboard": "Sidebar nav, Top bar. Grid cols-1 md:cols-3 lg:cols-4 gap-6. Dense but readable. Sharp/minimal radius."
+  },
+  "component_instructions": {
+    "header": "Premium Header. Top bar (thin, promos). Main header (Logo, large search bar, wishlist, cart, account). Sticky on scroll with glassmorphism.",
+    "product_card": "White background, subtle border. Image takes 70% height. Hover: image slight zoom, 'Add to Cart' button slides up or fades in. Wishlist heart top-right.",
+    "buttons": "Primary: Pill-shaped or rounded-full, solid brand_orange, white text. Secondary: White bg, border brand_orange, orange text or dark text.",
+    "product_details": "Left: Large sticky gallery with thumbnails. Right: Title, price, specs, quantity, massive Add to Cart. Smooth scrolling to reviews."
+  },
+  "media": {
+    "image_urls": {
+      "hero_product": "https://images.unsplash.com/photo-1583691028182-e8f01e74bfa2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwZG9vciUyMGhhbmRsZSUyMGxvY2slMjBoYXJkd2FyZXxlbnwwfHx8fDE3ODgwMzE5MTF8MA&ixlib=rb-4.1.0&q=85",
+      "category_door": "https://images.unsplash.com/photo-1563417994968-13665a6ff908?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHw0fHxwcmVtaXVtJTIwZG9vciUyMGhhbmRsZSUyMGxvY2slMjBoYXJkd2FyZXxlbnwwfHx8fDE3ODgwMzE5MTJ8MA&ixlib=rb-4.1.0&q=85",
+      "category_kitchen": "https://images.unsplash.com/photo-1595418312726-3beb2f4fe67e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBraXRjaGVuJTIwY2FiaW5ldCUyMGhhcmR3YXJlJTIwYnJhc3N8ZW58MHx8fHwxNzg4MDMxOTExfDA&ixlib=rb-4.1.0&q=85",
+      "category_cabinet": "https://images.unsplash.com/photo-1645743754938-98b77f7524bd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwZHJhd2VyJTIwcHVsbCUyMGhhbmRsZSUyMGJyYXNzJTIwd2hpdGUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4ODAzMTkyMHww&ixlib=rb-4.1.0&q=85",
+      "category_tools": "https://images.unsplash.com/photo-1634793350906-63567e86df97?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwY29uc3RydWN0aW9uJTIwcG93ZXIlMjB0b29sc3xlbnwwfHx8fDE3ODgwMzE5MTl8MA&ixlib=rb-4.1.0&q=85",
+      "showroom_bg": "https://images.unsplash.com/photo-1643903032976-8c0d0556a8ea?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwbHV4dXJ5JTIwaGFyZHdhcmUlMjBzaG93cm9vbSUyMGludGVyaW9yfGVufDB8fHx8MTc4ODAzMTkxMnww&ixlib=rb-4.1.0&q=85",
+      "logo_placeholder": "https://images.pexels.com/photos/26576975/pexels-photo-26576975.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    },
+    "instructions": "Use these exact URLs for products, categories, backgrounds, and logos. Never use dummy text placeholders for images."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "stroke_width": "1.5",
+    "instruction": "Use lucide-react. Keep stroke width thin (1.5) for a premium, delicate look matching the high-end hardware."
+  },
+  "accessibility": {
+    "contrast": "Ensure brand_orange on white meets at least 3:1 for large text and 4.5:1 for small. If using orange background, use white text.",
+    "motion": "Wrap framer-motion configs with useReducedMotion hook where applicable or ensure structural usability without animations.",
+    "testing": "All interactive elements MUST include data-testid attribute."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You MUST NOT apply universal transition (transition: all). Use specific transitions.",
+    "You MUST NOT center align the app container. Text reads naturally left-aligned.",
+    "Never use AI assistant Emojis.",
+    "Use 2-3x more spacing than typical for a premium breathable look.",
+    "Use glass-morphism effects with backdrop-blur-xl and bg-white/80 for sticky headers. DO NOT use completely transparent backgrounds over content.",
+    "Include data-testid on all key interactive elements.",
+    "Use Sonner for toasts."
+  ]
+}
