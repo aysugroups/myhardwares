@@ -22,7 +22,10 @@ on conflict (slug) do nothing;
 
 -- Site settings
 insert into site_settings (id, data) values (1, jsonb_build_object(
-  'store_name','MY HARDWARES','phone','+91 90000 00000','email','support@myhardwares.com',
+  'store_name','MY HARDWARES','phone','+91 70105 86606','email','support@myhardwares.com',
+  'whatsapp_number','917010586606',
+  'upi_id','',
+  'upi_qr_url','',
   'address','India','announcement','Fast Delivery • Best Hardware Deals • Quality You Can Trust',
   'free_shipping_threshold',999,'shipping_fee',79,'tax_percent',0,'currency','INR',
   'delivery_estimate','3-5 business days',

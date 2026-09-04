@@ -13,15 +13,19 @@ $$;
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles (id, full_name, email, phone, role)
+  insert into public.profiles (id, full_name, email, phone, role, status)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
     new.email,
     new.raw_user_meta_data->>'phone',
-    case when lower(new.email) = 'myhardwaresadmin@gmail.com' then 'admin' else 'customer' end
+    'customer',
+    'active'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    email = excluded.email,
+    full_name = coalesce(nullif(excluded.full_name, ''), profiles.full_name),
+    phone = coalesce(nullif(excluded.phone, ''), profiles.phone);
   return new;
 end $$;
 
@@ -29,11 +33,18 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_user();
 
--- Promote any existing user to admin by email (run manually if needed)
+-- Promote any existing user to admin by email (must be executed by database owner / service role / existing admin)
 create or replace function promote_admin(p_email text)
-returns void language sql security definer set search_path = public as $$
-  update profiles set role = 'admin' where lower(email) = lower(p_email);
-$$;
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not is_admin() then
+    raise exception 'Not authorized to promote administrators';
+  end if;
+  update public.profiles set role = 'admin' where lower(email) = lower(p_email);
+end $$;
+
+revoke execute on function promote_admin(text) from public, anon, authenticated;
+grant execute on function promote_admin(text) to service_role, postgres;
 
 -- ---------- updated_at ----------
 create or replace function set_updated_at()

@@ -44,6 +44,16 @@ export const adminService = {
     await supabase.from('order_status_history').insert({ order_id: orderId, status, note: note || null })
   },
 
+  async verifyManualPayment(orderId: string, notes?: string) {
+    if (!isSupabaseConfigured) throw new Error('Database not configured')
+    const { data, error } = await supabase.rpc('admin_verify_manual_payment', {
+      p_order_id: orderId,
+      p_notes: notes || null,
+    })
+    if (error) throw error
+    return data
+  },
+
   async customers() {
     if (!isSupabaseConfigured) return []
     const { data } = await supabase.rpc('admin_customers')

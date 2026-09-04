@@ -20,7 +20,7 @@ Build a real, production-ready, premium LIGHT (orange + white) e-commerce platfo
 - Account: dashboard, profile, orders, order detail w/ tracking timeline, wishlist, addresses (Indian phone/PIN validation).
 - Checkout: address select/add, coupon, server-computed totals, Razorpay flow (keys-pending state handled).
 - Admin panel (light SaaS): dashboard (real RPC stats + charts + realtime), products CRUD + image upload, categories, brands, inventory (atomic adjust), orders + status updates, customers, reviews moderation, coupons, banners, analytics, settings. Realtime notifications.
-- DB: full normalized schema, RLS on all tables, triggers (profile creation, admin auto-role for myhardwaresadmin@gmail.com, rating recompute, notifications), atomic order/payment RPCs, coupon validation, storage bucket + policies.
+- DB: full normalized schema, RLS on all tables, triggers (profile creation with customer role, admin promote RPC, rating recompute, notifications), atomic order/payment RPCs, coupon validation, storage bucket + policies.
 - Razorpay Edge Functions: create-order (server price authority), verify (HMAC signature), webhook (idempotent), mark-failed.
 - Cloudflare: `_redirects` (SPA), `_headers` (security), robots.txt. README with full setup.
 

@@ -19,7 +19,8 @@ create policy p_storage_admin_insert on storage.objects
 
 drop policy if exists p_storage_admin_update on storage.objects;
 create policy p_storage_admin_update on storage.objects
-  for update using (bucket_id = 'product-images' and is_admin());
+  for update using (bucket_id = 'product-images' and is_admin())
+  with check (bucket_id = 'product-images' and is_admin());
 
 drop policy if exists p_storage_admin_delete on storage.objects;
 create policy p_storage_admin_delete on storage.objects

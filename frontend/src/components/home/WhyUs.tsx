@@ -4,7 +4,7 @@ import { Truck, ShieldCheck, RefreshCw, Headphones, BadgeCheck, CreditCard } fro
 const FEATURES = [
   { icon: BadgeCheck, title: '100% Genuine', desc: 'Authentic branded hardware, quality-checked before dispatch.' },
   { icon: Truck, title: 'Fast Delivery', desc: 'Quick, reliable shipping across India with live tracking.' },
-  { icon: ShieldCheck, title: 'Secure Payments', desc: 'Razorpay-protected checkout with encrypted transactions.' },
+  { icon: ShieldCheck, title: 'Secure Payments', desc: 'Direct UPI QR payment with instant WhatsApp order dispatch.' },
   { icon: RefreshCw, title: 'Easy Returns', desc: 'Hassle-free returns on eligible products.' },
   { icon: Headphones, title: 'Expert Support', desc: 'Hardware specialists ready to help you choose right.' },
   { icon: CreditCard, title: 'Best Prices', desc: 'Showroom quality at competitive online prices.' },

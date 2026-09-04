@@ -1,11 +1,21 @@
 -- ============================================================
--- MY HARDWARES — Database Schema (PostgreSQL / Supabase)
--- Run this FIRST in the Supabase SQL Editor.
+-- MY HARDWARES — ALL-IN-ONE SUPABASE DATABASE SETUP
+-- Safe and idempotent script for fresh setup or updates.
+--
+-- Execution Order:
+--   1. Extensions, Enums & Schema Tables
+--   2. Functions, Triggers & Admin RPCs
+--   3. Row Level Security (RLS) & Policies
+--   4. Seed Data (Catalog, Categories, Brands, Settings, Coupons)
+--   5. Order & Payment RPCs (Server-Authoritative)
+--   6. Storage Bucket & Policies
 -- ============================================================
 
+-- ============================================================
+-- 1. EXTENSIONS & ENUMS
+-- ============================================================
 create extension if not exists "pgcrypto";
 
--- ---------- Enums ----------
 do $$ begin
   create type product_status as enum ('draft','published','archived');
 exception when duplicate_object then null; end $$;
@@ -18,7 +28,11 @@ do $$ begin
   create type payment_status as enum ('pending','paid','failed','refunded');
 exception when duplicate_object then null; end $$;
 
--- ---------- Profiles & roles ----------
+-- ============================================================
+-- 2. SCHEMA TABLES & INDEXES
+-- ============================================================
+
+-- ---------- Profiles & Roles ----------
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
@@ -30,7 +44,7 @@ create table if not exists profiles (
   updated_at timestamptz not null default now()
 );
 
--- ---------- Catalog ----------
+-- ---------- Catalog: Categories & Brands ----------
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -62,6 +76,7 @@ create table if not exists brands (
   created_at timestamptz not null default now()
 );
 
+-- ---------- Catalog: Products ----------
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   sku text unique not null,
@@ -136,7 +151,7 @@ create table if not exists inventory_transactions (
   created_at timestamptz not null default now()
 );
 
--- ---------- Cart & wishlist ----------
+-- ---------- Cart & Wishlist ----------
 create table if not exists cart_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -196,7 +211,7 @@ create table if not exists coupon_usage (
   created_at timestamptz not null default now()
 );
 
--- ---------- Orders ----------
+-- ---------- Orders & Payments ----------
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   order_number text unique not null,
@@ -210,6 +225,8 @@ create table if not exists orders (
   total numeric(12,2) not null,
   razorpay_order_id text,
   razorpay_payment_id text,
+  payment_method text not null default 'upi_qr',
+  payment_confirmation_requested boolean not null default false,
   payment_status payment_status not null default 'pending',
   status order_status not null default 'pending_payment',
   tracking_number text,
@@ -220,6 +237,7 @@ create table if not exists orders (
 create index if not exists idx_orders_user on orders(user_id);
 create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_orders_rzp on orders(razorpay_order_id);
+create index if not exists idx_orders_pay_status on orders(payment_status);
 
 create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
@@ -274,7 +292,7 @@ create table if not exists review_images (
   url text not null
 );
 
--- ---------- CMS ----------
+-- ---------- CMS & Settings ----------
 create table if not exists banners (
   id uuid primary key default gen_random_uuid(),
   title text,
@@ -304,30 +322,35 @@ create table if not exists notifications (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_notifications_admin on notifications(user_id) where user_id is null;
+
+
 -- ============================================================
--- MY HARDWARES — Functions, Triggers & RPCs
--- Run this SECOND (after schema.sql).
+-- 3. FUNCTIONS, TRIGGERS & RPCs
 -- ============================================================
 
 -- ---------- Admin check (avoids RLS recursion) ----------
 create or replace function is_admin()
 returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and role = 'admin');
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
 $$;
 
--- ---------- New user -> profile ----------
+-- ---------- New user -> profile (strictly sets role = customer) ----------
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles (id, full_name, email, phone, role)
+  insert into public.profiles (id, full_name, email, phone, role, status)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
     new.email,
     new.raw_user_meta_data->>'phone',
-    case when lower(new.email) = 'myhardwaresadmin@gmail.com' then 'admin' else 'customer' end
+    'customer',
+    'active'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    email = excluded.email,
+    full_name = coalesce(nullif(excluded.full_name, ''), profiles.full_name),
+    phone = coalesce(nullif(excluded.phone, ''), profiles.phone);
   return new;
 end $$;
 
@@ -335,13 +358,20 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_user();
 
--- Promote any existing user to admin by email (run manually if needed)
+-- Promote any existing user to admin by email (must be executed by database owner / service role / existing admin)
 create or replace function promote_admin(p_email text)
-returns void language sql security definer set search_path = public as $$
-  update profiles set role = 'admin' where lower(email) = lower(p_email);
-$$;
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not is_admin() then
+    raise exception 'Not authorized to promote administrators';
+  end if;
+  update public.profiles set role = 'admin' where lower(email) = lower(p_email);
+end $$;
 
--- ---------- updated_at ----------
+revoke execute on function promote_admin(text) from public, anon, authenticated;
+grant execute on function promote_admin(text) to service_role, postgres;
+
+-- ---------- updated_at trigger ----------
 create or replace function set_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end $$;
@@ -353,7 +383,7 @@ create trigger t_orders_updated before update on orders for each row execute fun
 drop trigger if exists t_profiles_updated on profiles;
 create trigger t_profiles_updated before update on profiles for each row execute function set_updated_at();
 
--- ---------- Order number default ----------
+-- ---------- Order number generator ----------
 create or replace function gen_order_number()
 returns text language sql as $$
   select 'MH-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
@@ -419,7 +449,7 @@ begin
   return new_stock;
 end $$;
 
--- ---------- Admin dashboard stats (real data) ----------
+-- ---------- Admin dashboard stats ----------
 create or replace function admin_dashboard_stats()
 returns json language plpgsql security definer set search_path = public as $$
 declare result json;
@@ -515,27 +545,30 @@ end $$;
 
 drop trigger if exists t_notify_low_stock on products;
 create trigger t_notify_low_stock after update of stock on products for each row execute function notify_low_stock();
+
+
 -- ============================================================
--- MY HARDWARES — Row Level Security
--- Run this THIRD (after functions.sql).
+-- 4. ROW LEVEL SECURITY (RLS) & POLICIES
 -- ============================================================
 
--- Prevent customers from escalating their own role
+-- Prevent customers from escalating their own role or status
 create or replace function prevent_role_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_admin() and new.role is distinct from old.role then
-    new.role := old.role;  -- silently keep old role
-  end if;
-  if not is_admin() and new.status is distinct from old.status then
-    new.status := old.status;
+  if not is_admin() then
+    if new.role is distinct from old.role then
+      raise exception 'Customers cannot modify user roles';
+    end if;
+    if new.status is distinct from old.status then
+      raise exception 'Customers cannot modify user status';
+    end if;
   end if;
   return new;
 end $$;
 drop trigger if exists t_prevent_role on profiles;
 create trigger t_prevent_role before update on profiles for each row execute function prevent_role_change();
 
--- Enable RLS
+-- Enable RLS across all tables
 alter table profiles enable row level security;
 alter table categories enable row level security;
 alter table subcategories enable row level security;
@@ -564,9 +597,9 @@ alter table notifications enable row level security;
 drop policy if exists p_profiles_self_select on profiles;
 create policy p_profiles_self_select on profiles for select using (id = auth.uid() or is_admin());
 drop policy if exists p_profiles_self_update on profiles;
-create policy p_profiles_self_update on profiles for update using (id = auth.uid() or is_admin());
+create policy p_profiles_self_update on profiles for update using (id = auth.uid() or is_admin()) with check (id = auth.uid() or is_admin());
 
--- ---------- CATALOG (public read published/active, admin write) ----------
+-- ---------- CATALOG ----------
 drop policy if exists p_categories_read on categories;
 create policy p_categories_read on categories for select using (is_active or is_admin());
 drop policy if exists p_categories_admin on categories;
@@ -605,27 +638,27 @@ create policy p_variants_admin on product_variants for all using (is_admin()) wi
 drop policy if exists p_inv_admin on inventory_transactions;
 create policy p_inv_admin on inventory_transactions for all using (is_admin()) with check (is_admin());
 
--- ---------- CART / WISHLIST (own only) ----------
+-- ---------- CART & WISHLIST ----------
 drop policy if exists p_cart_own on cart_items;
 create policy p_cart_own on cart_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists p_wishlist_own on wishlist_items;
 create policy p_wishlist_own on wishlist_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- ---------- ADDRESSES (own only) ----------
+-- ---------- ADDRESSES ----------
 drop policy if exists p_addr_own on addresses;
 create policy p_addr_own on addresses for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- ---------- COUPONS (public can read active for display; admin manage) ----------
+-- ---------- COUPONS ----------
 drop policy if exists p_coupons_read on coupons;
-create policy p_coupons_read on coupons for select using (is_admin());
+create policy p_coupons_read on coupons for select using (is_admin() or is_active);
 drop policy if exists p_coupons_admin on coupons;
 create policy p_coupons_admin on coupons for all using (is_admin()) with check (is_admin());
 
 drop policy if exists p_coupon_usage_own on coupon_usage;
 create policy p_coupon_usage_own on coupon_usage for select using (user_id = auth.uid() or is_admin());
 
--- ---------- ORDERS (own read; writes via service role/edge functions) ----------
+-- ---------- ORDERS ----------
 drop policy if exists p_orders_read on orders;
 create policy p_orders_read on orders for select using (user_id = auth.uid() or is_admin());
 drop policy if exists p_orders_admin_update on orders;
@@ -644,12 +677,13 @@ drop policy if exists p_order_history_admin on order_status_history;
 create policy p_order_history_admin on order_status_history for insert with check (is_admin());
 
 drop policy if exists p_payments_admin on payments;
-create policy p_payments_admin on payments for select using (is_admin());
+create policy p_payments_admin on payments for select using (
+  is_admin() or exists (select 1 from orders o where o.id = payments.order_id and o.user_id = auth.uid())
+);
 
 -- ---------- REVIEWS ----------
 drop policy if exists p_reviews_read on reviews;
 create policy p_reviews_read on reviews for select using (is_visible or user_id = auth.uid() or is_admin());
--- Only customers who purchased & received the product can create a review
 drop policy if exists p_reviews_insert on reviews;
 create policy p_reviews_insert on reviews for insert with check (
   user_id = auth.uid() and exists (
@@ -667,7 +701,7 @@ create policy p_review_images_read on review_images for select using (true);
 drop policy if exists p_review_images_write on review_images;
 create policy p_review_images_write on review_images for all using (is_admin() or exists (select 1 from reviews r where r.id = review_images.review_id and r.user_id = auth.uid())) with check (true);
 
--- ---------- CMS ----------
+-- ---------- CMS & SETTINGS ----------
 drop policy if exists p_banners_read on banners;
 create policy p_banners_read on banners for select using (is_active or is_admin());
 drop policy if exists p_banners_admin on banners;
@@ -678,7 +712,7 @@ create policy p_settings_read on site_settings for select using (true);
 drop policy if exists p_settings_admin on site_settings;
 create policy p_settings_admin on site_settings for all using (is_admin()) with check (is_admin());
 
--- ---------- NOTIFICATIONS (own; admin sees global via null user_id) ----------
+-- ---------- NOTIFICATIONS ----------
 drop policy if exists p_notif_read on notifications;
 create policy p_notif_read on notifications for select using (
   (user_id is null and is_admin()) or user_id = auth.uid()
@@ -687,120 +721,10 @@ drop policy if exists p_notif_update on notifications;
 create policy p_notif_update on notifications for update using (
   (user_id is null and is_admin()) or user_id = auth.uid()
 ) with check (true);
+
+
 -- ============================================================
--- MY HARDWARES — Order & Payment RPCs (atomic, server-authoritative)
--- Run this FIFTH (after seed.sql). Called by Edge Functions.
--- ============================================================
-
--- Create a PENDING order with server-computed totals (never trusts client prices).
-create or replace function create_pending_order(p_user_id uuid, p_items jsonb, p_address jsonb, p_coupon text)
-returns json language plpgsql security definer set search_path = public as $$
-declare
-  it jsonb; prod products%rowtype; qty int;
-  v_subtotal numeric := 0; v_discount numeric := 0; v_shipping numeric := 0; v_tax numeric := 0; v_total numeric := 0;
-  v_order_id uuid; v_order_number text; s jsonb; cp json; free_thr numeric; ship_fee numeric; tax_pct numeric;
-begin
-  if p_items is null or jsonb_array_length(p_items) = 0 then raise exception 'Cart is empty'; end if;
-
-  -- Validate + price each line from DB
-  create temporary table tmp_lines (product_id uuid, product_name text, sku text, unit_price numeric, quantity int, line_total numeric, image_url text) on commit drop;
-  for it in select * from jsonb_array_elements(p_items) loop
-    select * into prod from products where id = (it->>'product_id')::uuid;
-    if not found or prod.status <> 'published' then raise exception 'Product unavailable'; end if;
-    qty := greatest(1, (it->>'quantity')::int);
-    if prod.stock < qty then raise exception 'Insufficient stock for %', prod.name; end if;
-    insert into tmp_lines values (
-      prod.id, prod.name, prod.sku,
-      coalesce(nullif(prod.sale_price,0), prod.price), qty,
-      coalesce(nullif(prod.sale_price,0), prod.price) * qty,
-      (select url from product_images where product_id = prod.id order by is_primary desc, sort_order asc limit 1)
-    );
-  end loop;
-  select coalesce(sum(line_total),0) into v_subtotal from tmp_lines;
-
-  -- Coupon (server-validated)
-  if p_coupon is not null and length(trim(p_coupon)) > 0 then
-    cp := validate_coupon(p_coupon, v_subtotal, p_user_id);
-    if (cp->>'valid')::boolean then v_discount := (cp->>'discount')::numeric; end if;
-  end if;
-
-  -- Shipping & tax from settings
-  select data into s from site_settings where id = 1;
-  free_thr := coalesce((s->>'free_shipping_threshold')::numeric, 999);
-  ship_fee := coalesce((s->>'shipping_fee')::numeric, 79);
-  tax_pct  := coalesce((s->>'tax_percent')::numeric, 0);
-  v_shipping := case when v_subtotal >= free_thr then 0 else ship_fee end;
-  v_tax := round((v_subtotal - v_discount) * tax_pct / 100.0, 2);
-  v_total := greatest(0, v_subtotal - v_discount) + v_shipping + v_tax;
-
-  insert into orders (user_id, address, subtotal, discount, coupon_code, shipping, tax, total, payment_status, status)
-  values (p_user_id, p_address, v_subtotal, v_discount, nullif(p_coupon,''), v_shipping, v_tax, v_total, 'pending', 'pending_payment')
-  returning id, order_number into v_order_id, v_order_number;
-
-  insert into order_items (order_id, product_id, product_name, sku, unit_price, quantity, line_total, image_url)
-  select v_order_id, product_id, product_name, sku, unit_price, quantity, line_total, image_url from tmp_lines;
-
-  return json_build_object(
-    'order_id', v_order_id, 'order_number', v_order_number,
-    'amount', round(v_total * 100), -- paise
-    'breakdown', json_build_object('subtotal', v_subtotal, 'discount', v_discount, 'shipping', v_shipping, 'tax', v_tax, 'total', v_total)
-  );
-end $$;
-
--- Idempotently confirm a paid order: reduce inventory, record payment, clear cart, log status.
-create or replace function confirm_order_paid(p_order_id uuid, p_rzp_order_id text, p_rzp_payment_id text)
-returns json language plpgsql security definer set search_path = public as $$
-declare ord orders%rowtype; li order_items%rowtype; new_stock int;
-begin
-  select * into ord from orders where id = p_order_id for update;
-  if not found then raise exception 'Order not found'; end if;
-  if ord.payment_status = 'paid' then
-    return json_build_object('success', true, 'order_number', ord.order_number, 'order_id', ord.id, 'already', true);
-  end if;
-
-  -- Reduce inventory atomically (guard against negative)
-  for li in select * from order_items where order_id = p_order_id loop
-    if li.product_id is not null then
-      update products set stock = stock - li.quantity where id = li.product_id returning stock into new_stock;
-      if new_stock < 0 then raise exception 'Out of stock during confirmation'; end if;
-      insert into inventory_transactions (product_id, change, reason, note) values (li.product_id, -li.quantity, 'sale', ord.order_number);
-    end if;
-  end loop;
-
-  update orders set payment_status='paid', status='confirmed',
-    razorpay_order_id = coalesce(p_rzp_order_id, razorpay_order_id),
-    razorpay_payment_id = p_rzp_payment_id
-  where id = p_order_id;
-
-  insert into payments (order_id, razorpay_order_id, razorpay_payment_id, amount, status)
-  values (p_order_id, p_rzp_order_id, p_rzp_payment_id, ord.total, 'captured')
-  on conflict (razorpay_payment_id) do nothing;
-
-  insert into order_status_history (order_id, status, note) values (p_order_id, 'confirmed', 'Payment received');
-
-  -- Coupon usage
-  if ord.coupon_code is not null then
-    update coupons set used_count = used_count + 1 where upper(code) = upper(ord.coupon_code);
-    insert into coupon_usage (coupon_id, user_id, order_id)
-      select id, ord.user_id, ord.id from coupons where upper(code) = upper(ord.coupon_code);
-  end if;
-
-  -- Clear user's cart
-  if ord.user_id is not null then delete from cart_items where user_id = ord.user_id; end if;
-
-  return json_build_object('success', true, 'order_number', ord.order_number, 'order_id', ord.id);
-end $$;
-
-create or replace function mark_order_failed(p_order_id uuid)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  update orders set payment_status='failed', status='payment_failed'
-  where id = p_order_id and payment_status <> 'paid';
-end $$;
--- ============================================================
--- MY HARDWARES — Seed Data (real starting catalog)
--- Run this FOURTH (after rls.sql). Safe to re-run.
--- These are real, editable catalog items — manage them in /admin.
+-- 5. SEED DATA (REAL STARTING CATALOG)
 -- ============================================================
 
 -- Categories
@@ -821,7 +745,10 @@ on conflict (slug) do nothing;
 
 -- Site settings
 insert into site_settings (id, data) values (1, jsonb_build_object(
-  'store_name','MY HARDWARES','phone','+91 90000 00000','email','support@myhardwares.com',
+  'store_name','MY HARDWARES','phone','+91 70105 86606','email','support@myhardwares.com',
+  'whatsapp_number','917010586606',
+  'upi_id','',
+  'upi_qr_url','',
   'address','India','announcement','Fast Delivery • Best Hardware Deals • Quality You Can Trust',
   'free_shipping_threshold',999,'shipping_fee',79,'tax_percent',0,'currency','INR',
   'delivery_estimate','3-5 business days',
@@ -857,7 +784,7 @@ from (values
 ) as v(sku,name,slug,short_desc,descr,cat,brand,price,sale_price,stock,feat,best,newa,warranty,tags,specs)
 on conflict (slug) do nothing;
 
--- Primary images for each product (reuses curated hardware imagery)
+-- Primary images for each product
 insert into product_images (product_id, url, is_primary, sort_order)
 select p.id, img.url, true, 0 from products p
 join (values
@@ -877,9 +804,327 @@ join (values
  ('door-stopper-pack','https://images.unsplash.com/photo-1645743754938-98b77f7524bd?crop=entropy&cs=srgb&fm=jpg&q=85&w=800')
 ) as img(slug,url) on img.slug = p.slug
 where not exists (select 1 from product_images pi where pi.product_id = p.id);
+
+
 -- ============================================================
--- MY HARDWARES — Storage bucket & policies
--- Run this SIXTH. Creates the public 'product-images' bucket.
+-- 6. ORDER & PAYMENT RPCs (SERVER-AUTHORITATIVE)
+-- ============================================================
+
+-- Create a PENDING order with server-computed totals (never trusts client prices).
+create or replace function create_pending_order(p_user_id uuid, p_items jsonb, p_address jsonb, p_coupon text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  it jsonb;
+  prod products%rowtype;
+  qty int;
+  unit_p numeric;
+  line_tot numeric;
+  img_url text;
+  v_subtotal numeric := 0;
+  v_discount numeric := 0;
+  v_shipping numeric := 0;
+  v_tax numeric := 0;
+  v_total numeric := 0;
+  v_order_id uuid;
+  v_order_number text;
+  s jsonb;
+  cp json;
+  free_thr numeric;
+  ship_fee numeric;
+  tax_pct numeric;
+begin
+  -- Validate user authentication
+  if auth.uid() is not null and auth.uid() <> p_user_id then
+    raise exception 'Unauthorized';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'Cart is empty';
+  end if;
+
+  if p_address is null then
+    raise exception 'Delivery address is required';
+  end if;
+
+  -- Create order record first to hold the items
+  insert into orders (
+    user_id, address, subtotal, discount, coupon_code, shipping, tax, total,
+    payment_method, payment_confirmation_requested, payment_status, status
+  ) values (
+    p_user_id, p_address, 0, 0, nullif(trim(p_coupon), ''), 0, 0, 0,
+    'upi_qr', false, 'pending', 'pending_payment'
+  ) returning id, order_number into v_order_id, v_order_number;
+
+  -- Validate each line item & insert authoritative order_items
+  for it in select * from jsonb_array_elements(p_items) loop
+    select * into prod from products where id = (it->>'product_id')::uuid;
+    if not found or prod.status <> 'published' then
+      raise exception 'Product is unavailable';
+    end if;
+
+    qty := greatest(1, coalesce((it->>'quantity')::int, 1));
+    if prod.stock < qty then
+      raise exception 'Insufficient stock for %', prod.name;
+    end if;
+
+    -- Authoritative server pricing
+    if prod.sale_price is not null and prod.sale_price > 0 and prod.sale_price < prod.price then
+      unit_p := prod.sale_price;
+    else
+      unit_p := prod.price;
+    end if;
+
+    line_tot := unit_p * qty;
+    v_subtotal := v_subtotal + line_tot;
+
+    select url into img_url from product_images
+    where product_id = prod.id
+    order by is_primary desc, sort_order asc limit 1;
+
+    insert into order_items (order_id, product_id, product_name, sku, unit_price, quantity, line_total, image_url)
+    values (v_order_id, prod.id, prod.name, prod.sku, unit_p, qty, line_tot, img_url);
+  end loop;
+
+  -- Coupon validation (server-side)
+  if p_coupon is not null and length(trim(p_coupon)) > 0 then
+    cp := validate_coupon(trim(p_coupon), v_subtotal, p_user_id);
+    if (cp->>'valid')::boolean then
+      v_discount := (cp->>'discount')::numeric;
+    end if;
+  end if;
+
+  -- Shipping & tax calculation from site settings
+  select data into s from site_settings where id = 1;
+  free_thr := coalesce((s->>'free_shipping_threshold')::numeric, 999);
+  ship_fee := coalesce((s->>'shipping_fee')::numeric, 79);
+  tax_pct  := coalesce((s->>'tax_percent')::numeric, 0);
+
+  v_shipping := case when v_subtotal >= free_thr then 0 else ship_fee end;
+  v_tax := round((greatest(0, v_subtotal - v_discount)) * tax_pct / 100.0, 2);
+  v_total := greatest(0, v_subtotal - v_discount) + v_shipping + v_tax;
+
+  -- Update order with authoritative totals
+  update orders set
+    subtotal = v_subtotal,
+    discount = v_discount,
+    shipping = v_shipping,
+    tax = v_tax,
+    total = v_total
+  where id = v_order_id;
+
+  -- Record initial status history
+  insert into order_status_history (order_id, status, note)
+  values (v_order_id, 'pending_payment', 'Order created with pending payment');
+
+  -- Clear user's active cart in database
+  if p_user_id is not null then
+    delete from cart_items where user_id = p_user_id;
+  end if;
+
+  return json_build_object(
+    'order_id', v_order_id,
+    'order_number', v_order_number,
+    'amount', round(v_total * 100), -- paise for gateway compatibility
+    'breakdown', json_build_object(
+      'subtotal', v_subtotal,
+      'discount', v_discount,
+      'shipping', v_shipping,
+      'tax', v_tax,
+      'total', v_total
+    )
+  );
+end $$;
+
+-- Customer action: Record "I Have Paid" notice without marking order as paid.
+create or replace function request_payment_confirmation(p_order_id uuid)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  ord orders%rowtype;
+begin
+  select * into ord from orders where id = p_order_id;
+  if not found then
+    raise exception 'Order not found';
+  end if;
+
+  -- Validate caller permission: customer who owns the order or admin
+  if auth.uid() is not null and ord.user_id is not null and auth.uid() <> ord.user_id and not is_admin() then
+    raise exception 'Unauthorized';
+  end if;
+
+  update orders
+  set payment_confirmation_requested = true
+  where id = p_order_id;
+
+  insert into order_status_history (order_id, status, note)
+  values (p_order_id, ord.status, 'Customer submitted payment confirmation request (UPI)');
+
+  return json_build_object('success', true, 'order_id', p_order_id, 'order_number', ord.order_number);
+end $$;
+
+-- Admin action: Verify manual payment, atomically deduct stock, and transition order to processing.
+create or replace function admin_verify_manual_payment(p_order_id uuid, p_notes text default null)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  ord orders%rowtype;
+  li order_items%rowtype;
+  new_stock int;
+  admin_uid uuid := auth.uid();
+begin
+  -- Validate that caller is an authorized admin
+  if not is_admin() and current_user not in ('postgres', 'service_role') then
+    raise exception 'Unauthorized: Admin privileges required';
+  end if;
+
+  select * into ord from orders where id = p_order_id for update;
+  if not found then
+    raise exception 'Order not found';
+  end if;
+
+  -- Idempotency check: duplicate verification does not duplicate stock deduction
+  if ord.payment_status = 'paid' then
+    return json_build_object('success', true, 'order_id', ord.id, 'order_number', ord.order_number, 'already_paid', true);
+  end if;
+
+  -- Atomically deduct inventory for each item (ensures no overselling & no negative stock)
+  for li in select * from order_items where order_id = p_order_id loop
+    if li.product_id is not null then
+      update products
+      set stock = stock - li.quantity
+      where id = li.product_id and stock >= li.quantity
+      returning stock into new_stock;
+
+      if not found then
+        raise exception 'Product % has insufficient stock during verification', li.product_name;
+      end if;
+
+      insert into inventory_transactions (product_id, change, reason, note, admin_id)
+      values (li.product_id, -li.quantity, 'sale', 'Order ' || ord.order_number || ' verified', admin_uid);
+    end if;
+  end loop;
+
+  -- Update order status to paid and processing
+  update orders set
+    payment_status = 'paid',
+    status = 'processing',
+    payment_confirmation_requested = true,
+    notes = coalesce(p_notes, notes),
+    updated_at = now()
+  where id = p_order_id;
+
+  -- Record payment transaction
+  insert into payments (order_id, amount, status, method, raw)
+  values (
+    p_order_id,
+    ord.total,
+    'captured',
+    'upi_qr',
+    jsonb_build_object('verified_by_admin', admin_uid, 'notes', p_notes, 'verified_at', now())
+  );
+
+  -- Record status history
+  insert into order_status_history (order_id, status, note)
+  values (p_order_id, 'processing', coalesce(p_notes, 'Manual UPI payment verified by admin'));
+
+  -- Record coupon usage if not already recorded
+  if ord.coupon_code is not null then
+    update coupons set used_count = used_count + 1 where upper(code) = upper(ord.coupon_code);
+    insert into coupon_usage (coupon_id, user_id, order_id)
+      select id, ord.user_id, ord.id from coupons where upper(code) = upper(ord.coupon_code)
+      on conflict do nothing;
+  end if;
+
+  return json_build_object(
+    'success', true,
+    'order_id', ord.id,
+    'order_number', ord.order_number,
+    'payment_status', 'paid',
+    'status', 'processing'
+  );
+end $$;
+
+-- Idempotently confirm a paid order (used for gateway callbacks / future Razorpay)
+create or replace function confirm_order_paid(p_order_id uuid, p_rzp_order_id text, p_rzp_payment_id text)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  ord orders%rowtype;
+  li order_items%rowtype;
+  new_stock int;
+begin
+  select * into ord from orders where id = p_order_id for update;
+  if not found then
+    raise exception 'Order not found';
+  end if;
+
+  if ord.payment_status = 'paid' then
+    return json_build_object('success', true, 'order_number', ord.order_number, 'order_id', ord.id, 'already', true);
+  end if;
+
+  for li in select * from order_items where order_id = p_order_id loop
+    if li.product_id is not null then
+      update products
+      set stock = stock - li.quantity
+      where id = li.product_id and stock >= li.quantity
+      returning stock into new_stock;
+
+      if not found then
+        raise exception 'Product % has insufficient stock during confirmation', li.product_name;
+      end if;
+
+      insert into inventory_transactions (product_id, change, reason, note)
+      values (li.product_id, -li.quantity, 'sale', ord.order_number);
+    end if;
+  end loop;
+
+  update orders set
+    payment_status = 'paid',
+    status = 'processing',
+    razorpay_order_id = coalesce(p_rzp_order_id, razorpay_order_id),
+    razorpay_payment_id = p_rzp_payment_id,
+    updated_at = now()
+  where id = p_order_id;
+
+  insert into payments (order_id, razorpay_order_id, razorpay_payment_id, amount, status, method)
+  values (p_order_id, p_rzp_order_id, p_rzp_payment_id, ord.total, 'captured', 'razorpay')
+  on conflict (razorpay_payment_id) do nothing;
+
+  insert into order_status_history (order_id, status, note)
+  values (p_order_id, 'processing', 'Payment received via Razorpay');
+
+  if ord.coupon_code is not null then
+    update coupons set used_count = used_count + 1 where upper(code) = upper(ord.coupon_code);
+    insert into coupon_usage (coupon_id, user_id, order_id)
+      select id, ord.user_id, ord.id from coupons where upper(code) = upper(ord.coupon_code);
+  end if;
+
+  if ord.user_id is not null then
+    delete from cart_items where user_id = ord.user_id;
+  end if;
+
+  return json_build_object('success', true, 'order_number', ord.order_number, 'order_id', ord.id);
+end $$;
+
+create or replace function mark_order_failed(p_order_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update orders
+  set payment_status = 'failed', status = 'payment_failed', updated_at = now()
+  where id = p_order_id and payment_status <> 'paid';
+end $$;
+
+-- Permissions
+grant execute on function create_pending_order(uuid, jsonb, jsonb, text) to authenticated, anon, service_role, postgres;
+grant execute on function request_payment_confirmation(uuid) to authenticated, anon, service_role, postgres;
+grant execute on function admin_verify_manual_payment(uuid, text) to authenticated, service_role, postgres;
+
+revoke execute on function confirm_order_paid(uuid, text, text) from public, anon, authenticated;
+grant execute on function confirm_order_paid(uuid, text, text) to service_role, postgres;
+
+revoke execute on function mark_order_failed(uuid) from public, anon, authenticated;
+grant execute on function mark_order_failed(uuid) to service_role, postgres;
+
+
+-- ============================================================
+-- 7. STORAGE BUCKET & STORAGE POLICIES
 -- ============================================================
 
 insert into storage.buckets (id, name, public)
@@ -898,7 +1143,8 @@ create policy p_storage_admin_insert on storage.objects
 
 drop policy if exists p_storage_admin_update on storage.objects;
 create policy p_storage_admin_update on storage.objects
-  for update using (bucket_id = 'product-images' and is_admin());
+  for update using (bucket_id = 'product-images' and is_admin())
+  with check (bucket_id = 'product-images' and is_admin());
 
 drop policy if exists p_storage_admin_delete on storage.objects;
 create policy p_storage_admin_delete on storage.objects

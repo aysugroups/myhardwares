@@ -2,7 +2,10 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 const DEFAULTS = {
   store_name: 'MY HARDWARES',
-  phone: '+91 90000 00000',
+  phone: '+91 70105 86606',
+  whatsapp_number: '917010586606',
+  upi_id: '',
+  upi_qr_url: '',
   email: 'support@myhardwares.com',
   address: 'India',
   announcement: 'Fast Delivery • Best Hardware Deals • Quality You Can Trust',

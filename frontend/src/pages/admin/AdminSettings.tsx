@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { settingsService } from '@/services/settingsService'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { QrCode, MessageCircle } from 'lucide-react'
 
 export default function AdminSettings() {
   const { data, isLoading } = useQuery({ queryKey: ['settings-admin'], queryFn: () => settingsService.get() })
@@ -13,13 +14,80 @@ export default function AdminSettings() {
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const setSocial = (k: string, v: string) => setForm((f: any) => ({ ...f, social: { ...f.social, [k]: v } }))
 
-  const save = async () => { setSaving(true); try { await settingsService.update(form); toast.success('Settings saved') } catch (e: any) { toast.error(e.message) } finally { setSaving(false) } }
+  const save = async () => {
+    setSaving(true)
+    try {
+      await settingsService.update(form)
+      toast.success('Settings saved successfully')
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (isLoading || !form) return <Skeleton className="h-96" />
 
   return (
     <div className="max-w-3xl">
       <h1 className="font-heading font-bold text-2xl md:text-3xl tracking-tight mb-6">Store Settings</h1>
+
+      {/* WhatsApp & UPI Settings */}
+      <div className="card p-6 space-y-4 mb-6 border-brand/30">
+        <div className="flex items-center gap-2">
+          <QrCode className="w-5 h-5 text-brand" />
+          <h3 className="font-heading font-semibold text-lg">WhatsApp Order & UPI QR Payment</h3>
+        </div>
+        <p className="text-xs text-ink-muted">
+          Configure the WhatsApp business number for direct order dispatch and the UPI QR code displayed to customers during checkout.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <F label="WhatsApp Order Number (India format: 91XXXXXXXXXX)">
+            <div className="relative">
+              <input
+                value={form.whatsapp_number || '917010586606'}
+                onChange={(e) => set('whatsapp_number', e.target.value.replace(/[^0-9]/g, ''))}
+                className="input-field"
+                placeholder="917010586606"
+                data-testid="set-whatsapp-number"
+              />
+            </div>
+          </F>
+          <F label="Business UPI ID (e.g. name@okhdfcbank)">
+            <input
+              value={form.upi_id || ''}
+              onChange={(e) => set('upi_id', e.target.value.trim())}
+              className="input-field"
+              placeholder="e.g. myhardwares@upi"
+              data-testid="set-upi-id"
+            />
+          </F>
+        </div>
+        <F label="UPI QR Code Image URL">
+          <input
+            value={form.upi_qr_url || ''}
+            onChange={(e) => set('upi_qr_url', e.target.value.trim())}
+            className="input-field"
+            placeholder="https://.../upi-qr.png"
+            data-testid="set-upi-qr-url"
+          />
+        </F>
+        {form.upi_qr_url ? (
+          <div className="flex items-center gap-3 p-3 bg-warm rounded-xl border border-line">
+            <img src={form.upi_qr_url} alt="QR Preview" className="w-20 h-20 object-contain rounded-lg bg-white p-1 border border-line" />
+            <div className="text-xs text-ink-muted">
+              <p className="font-semibold text-ink">QR Code Preview</p>
+              <p>This image will be displayed to customers at checkout & order tracking.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+            <strong>Note:</strong> If no QR code image URL is provided, a placeholder indicating "REAL UPI QR IMAGE REQUIRED" is shown at checkout.
+          </div>
+        )}
+      </div>
+
+      {/* Store Info */}
       <div className="card p-6 space-y-4 mb-6">
         <h3 className="font-heading font-semibold">Store Info</h3>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -31,6 +99,8 @@ export default function AdminSettings() {
         <F label="Address"><input value={form.address} onChange={(e) => set('address', e.target.value)} className="input-field" /></F>
         <F label="Announcement Bar"><input value={form.announcement} onChange={(e) => set('announcement', e.target.value)} className="input-field" /></F>
       </div>
+
+      {/* Shipping & Tax */}
       <div className="card p-6 space-y-4 mb-6">
         <h3 className="font-heading font-semibold">Shipping & Tax</h3>
         <div className="grid sm:grid-cols-3 gap-4">
@@ -40,6 +110,8 @@ export default function AdminSettings() {
         </div>
         <F label="Delivery Estimate"><input value={form.delivery_estimate} onChange={(e) => set('delivery_estimate', e.target.value)} className="input-field" /></F>
       </div>
+
+      {/* Social Links */}
       <div className="card p-6 space-y-4 mb-6">
         <h3 className="font-heading font-semibold">Social Links</h3>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -48,10 +120,12 @@ export default function AdminSettings() {
           ))}
         </div>
       </div>
+
       <Button onClick={save} loading={saving} size="lg" data-testid="save-settings">Save Settings</Button>
     </div>
   )
 }
+
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="text-sm font-medium text-ink-muted mb-1 block">{label}</label>{children}</div>
 }

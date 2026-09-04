@@ -6,7 +6,7 @@ const CONTENT: Record<string, { title: string; body: string[] }> = {
     body: [
       'We respect your privacy and are committed to protecting your personal data. This policy explains how MY HARDWARES collects, uses and safeguards your information.',
       'We collect information you provide during account creation, checkout and support requests, including name, email, phone and delivery address.',
-      'Payment information is processed securely by Razorpay. We never store your card or bank details on our servers.',
+      'Payment information is processed securely via UPI and verified order channels. We never store your card or bank credentials on our servers.',
       'Your data is used solely to process orders, provide support and improve your experience. We do not sell your personal information.',
       'You may request access to or deletion of your data at any time by contacting support@myhardwares.com.',
     ],

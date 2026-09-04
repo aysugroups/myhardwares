@@ -1,14 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL as string
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const url = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || ''
+const anonKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
 
 // True only when real credentials are present (not the placeholder defaults).
 export const isSupabaseConfigured =
   !!url &&
   !!anonKey &&
+  !url.includes('your-project') &&
   !url.includes('YOUR-PROJECT') &&
-  !anonKey.includes('your-anon')
+  !url.includes('placeholder') &&
+  !anonKey.includes('your-anon') &&
+  !anonKey.includes('YOUR_PUBLIC_ANON_KEY') &&
+  !anonKey.includes('placeholder')
 
 export const supabase = createClient(
   isSupabaseConfigured ? url : 'https://placeholder.supabase.co',

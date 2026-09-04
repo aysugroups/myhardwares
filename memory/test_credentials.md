@@ -4,10 +4,11 @@
 
 ## Admin
 - URL: /admin/login
-- Email: myhardwaresadmin@gmail.com
-- Password: Admin@Mh
-- Role auto-assigned 'admin' by DB trigger on signup (handle_new_user). If created before functions.sql ran: `select promote_admin('myhardwaresadmin@gmail.com');`
-- Create the user via the app Register page OR Supabase Dashboard → Authentication → Add user.
+- Create the user via the app Register page or Supabase Dashboard -> Authentication -> Add user.
+- Promote the user to admin securely in Supabase SQL Editor:
+  `select promote_admin('your-admin-email@example.com');`
+  OR
+  `update public.profiles set role = 'admin' where email = 'your-admin-email@example.com';`
 
 ## Customer
 - Register any email/password (min 8 chars) at /register.

@@ -1,16 +1,28 @@
 import { Link } from 'react-router-dom'
 import { Mail, Phone, MapPin, Instagram, Facebook, Twitter, Youtube, Send } from 'lucide-react'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { settingsService } from '@/services/settingsService'
 
 export function Footer() {
   const [email, setEmail] = useState('')
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => settingsService.get() })
+
   const subscribe = (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
     toast.success('Thanks for subscribing!')
     setEmail('')
   }
+
+  const socialLinks = [
+    { icon: Instagram, url: settings?.social?.instagram },
+    { icon: Facebook, url: settings?.social?.facebook },
+    { icon: Twitter, url: settings?.social?.twitter },
+    { icon: Youtube, url: settings?.social?.youtube },
+  ]
+
   return (
     <footer className="bg-warm border-t border-gray-100 mt-24">
       {/* Newsletter */}
@@ -32,8 +44,16 @@ export function Footer() {
           <img src="/logo-full.png" alt="MY HARDWARES" className="h-10 mb-4" />
           <p className="text-ink-muted text-sm max-w-sm">Premium locks, furniture fittings, kitchen &amp; architectural hardware, tools and accessories. Quality you can trust.</p>
           <div className="flex gap-2 mt-5">
-            {[Instagram, Facebook, Twitter, Youtube].map((Icon, i) => (
-              <a key={i} href="#" className="w-9 h-9 rounded-full bg-white border border-line flex items-center justify-center text-ink-muted hover:text-brand hover:border-brand transition-colors"><Icon className="w-4 h-4" /></a>
+            {socialLinks.map((item, i) => (
+              <a
+                key={i}
+                href={item.url || '#'}
+                target={item.url ? '_blank' : undefined}
+                rel="noreferrer"
+                className="w-9 h-9 rounded-full bg-white border border-line flex items-center justify-center text-ink-muted hover:text-brand hover:border-brand transition-colors"
+              >
+                <item.icon className="w-4 h-4" />
+              </a>
             ))}
           </div>
         </div>
@@ -60,9 +80,18 @@ export function Footer() {
         <div>
           <h4 className="font-heading font-semibold mb-4">Get in touch</h4>
           <ul className="space-y-2.5 text-sm text-ink-muted">
-            <li className="flex items-center gap-2"><Phone className="w-4 h-4 text-brand" /> +91 90000 00000</li>
-            <li className="flex items-center gap-2"><Mail className="w-4 h-4 text-brand" /> support@myhardwares.com</li>
-            <li className="flex items-start gap-2"><MapPin className="w-4 h-4 text-brand mt-0.5" /> India</li>
+            <li className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-brand shrink-0" />
+              <a href={`tel:${settings?.phone || '+919000000000'}`} className="hover:text-brand">{settings?.phone || '+91 90000 00000'}</a>
+            </li>
+            <li className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-brand shrink-0" />
+              <a href={`mailto:${settings?.email || 'support@myhardwares.com'}`} className="hover:text-brand">{settings?.email || 'support@myhardwares.com'}</a>
+            </li>
+            <li className="flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-brand mt-0.5 shrink-0" />
+              <span>{settings?.address || 'India'}</span>
+            </li>
           </ul>
         </div>
       </div>
@@ -70,7 +99,7 @@ export function Footer() {
       <div className="border-t border-gray-100">
         <div className="container-x py-5 flex flex-col md:flex-row items-center justify-between gap-2 text-sm text-ink-muted">
           <p>© {new Date().getFullYear()} MY HARDWARES. All rights reserved.</p>
-          <p>Secure payments powered by Razorpay</p>
+          <p>Direct UPI QR & WhatsApp Verified Orders</p>
         </div>
       </div>
     </footer>

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { categoryService } from '@/services/categoryService'
 import { productService } from '@/services/productService'
+import { settingsService } from '@/services/settingsService'
 import { formatINR } from '@/lib/utils'
 
 const NAV = [
@@ -36,6 +37,7 @@ export function Header() {
   const logout = useAuthStore((s) => s.logout)
   const searchRef = useRef<HTMLDivElement>(null)
 
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => settingsService.get() })
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => categoryService.list() })
   const { data: suggestions = [] } = useQuery({
     queryKey: ['suggest', debounced],
@@ -75,12 +77,18 @@ export function Header() {
       <div className="bg-ink text-white/90 text-xs hidden md:block">
         <div className="container-x flex items-center justify-between py-2">
           <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5"><Truck className="w-3.5 h-3.5 text-brand" /> Fast Delivery</span>
-            <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-brand" /> Best Hardware Deals</span>
-            <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-brand" /> Quality You Can Trust</span>
+            {settings?.announcement ? (
+              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-brand" /> {settings.announcement}</span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5"><Truck className="w-3.5 h-3.5 text-brand" /> Fast Delivery</span>
+                <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-brand" /> Best Hardware Deals</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-brand" /> Quality You Can Trust</span>
+              </>
+            )}
           </div>
-          <a href="tel:+919000000000" className="flex items-center gap-1.5 hover:text-brand transition-colors">
-            <Phone className="w-3.5 h-3.5" /> Need Help? +91 90000 00000
+          <a href={`tel:${settings?.phone || '+919000000000'}`} className="flex items-center gap-1.5 hover:text-brand transition-colors">
+            <Phone className="w-3.5 h-3.5" /> Need Help? {settings?.phone || '+91 90000 00000'}
           </a>
         </div>
       </div>

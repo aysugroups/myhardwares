@@ -210,6 +210,8 @@ create table if not exists orders (
   total numeric(12,2) not null,
   razorpay_order_id text,
   razorpay_payment_id text,
+  payment_method text not null default 'upi_qr',
+  payment_confirmation_requested boolean not null default false,
   payment_status payment_status not null default 'pending',
   status order_status not null default 'pending_payment',
   tracking_number text,
@@ -220,6 +222,7 @@ create table if not exists orders (
 create index if not exists idx_orders_user on orders(user_id);
 create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_orders_rzp on orders(razorpay_order_id);
+create index if not exists idx_orders_pay_status on orders(payment_status);
 
 create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),

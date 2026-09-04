@@ -3,15 +3,17 @@
 -- Run this THIRD (after functions.sql).
 -- ============================================================
 
--- Prevent customers from escalating their own role
+-- Prevent customers from escalating their own role or status
 create or replace function prevent_role_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_admin() and new.role is distinct from old.role then
-    new.role := old.role;  -- silently keep old role
-  end if;
-  if not is_admin() and new.status is distinct from old.status then
-    new.status := old.status;
+  if not is_admin() then
+    if new.role is distinct from old.role then
+      raise exception 'Customers cannot modify user roles';
+    end if;
+    if new.status is distinct from old.status then
+      raise exception 'Customers cannot modify user status';
+    end if;
   end if;
   return new;
 end $$;

@@ -28,11 +28,26 @@ export const categoryService = {
     const { error } = await supabase.from('categories').delete().eq('id', id)
     if (error) throw error
   },
-  async subcategories(categoryId?: string) {
+  async subcategories(categoryId?: string, activeOnly = false) {
     if (!isSupabaseConfigured) return []
     let q = supabase.from('subcategories').select('*').order('sort_order')
     if (categoryId) q = q.eq('category_id', categoryId)
+    if (activeOnly) q = q.eq('is_active', true)
     const { data } = await q
     return data || []
+  },
+  async createSubcategory(payload: any) {
+    const { data, error } = await supabase.from('subcategories').insert(payload).select().single()
+    if (error) throw error
+    return data
+  },
+  async updateSubcategory(id: string, payload: any) {
+    const { data, error } = await supabase.from('subcategories').update(payload).eq('id', id).select().single()
+    if (error) throw error
+    return data
+  },
+  async removeSubcategory(id: string) {
+    const { error } = await supabase.from('subcategories').delete().eq('id', id)
+    if (error) throw error
   },
 }
