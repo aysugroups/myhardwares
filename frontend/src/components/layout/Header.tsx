@@ -101,7 +101,7 @@ export function Header() {
           </button>
 
           <Link to="/" className="flex items-center shrink-0" data-testid="logo-link">
-            <img src="/logo-full.png" alt="MY HARDWARES" className="h-9 md:h-11 w-auto" />
+            <img src="/logo-full.png" alt="MY HARDWARES" className="h-12 md:h-14 w-auto max-w-[150px] object-contain shrink-0" />
           </Link>
 
           {/* Search */}
@@ -259,7 +259,9 @@ function MobileMenu({ open, onClose, categories, user, logout }: any) {
             className="absolute left-0 top-0 h-full w-[85%] max-w-sm bg-white overflow-y-auto"
           >
             <div className="flex items-center justify-between p-4 border-b border-line">
-              <img src="/logo-full.png" alt="MY HARDWARES" className="h-8" />
+              <Link to="/" onClick={onClose} className="flex items-center">
+                <img src="/logo-full.png" alt="MY HARDWARES" className="h-10 w-auto max-w-[130px] object-contain" />
+              </Link>
               <button onClick={onClose} className="p-2 text-ink" data-testid="mobile-menu-close"><X className="w-6 h-6" /></button>
             </div>
             <div className="p-4 space-y-1">

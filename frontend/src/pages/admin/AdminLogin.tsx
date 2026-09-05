@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Lock, Mail, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -36,7 +36,11 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-warm flex items-center justify-center p-4">
       <Seo title="Admin Login" />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-        <div className="text-center mb-6"><img src="/logo-full.png" alt="MY HARDWARES" className="h-11 mx-auto" /></div>
+        <div className="text-center mb-6">
+          <Link to="/" className="inline-block">
+            <img src="/logo-full.png" alt="MY HARDWARES" className="h-16 w-auto max-w-[180px] mx-auto object-contain" />
+          </Link>
+        </div>
         <div className="card p-8">
           <div className="flex items-center gap-2 text-brand mb-1"><ShieldCheck className="w-5 h-5" /><span className="font-semibold text-sm uppercase tracking-wide">Admin Access</span></div>
           <h1 className="font-heading font-bold text-2xl tracking-tight mb-6">Sign in to dashboard</h1>

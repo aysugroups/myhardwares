@@ -50,7 +50,7 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className={cn('fixed lg:sticky top-0 left-0 h-screen w-64 bg-white border-r border-gray-100 z-50 transition-transform lg:translate-x-0', sidebar ? 'translate-x-0' : '-translate-x-full')}>
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <Link to="/admin"><img src="/logo-full.png" alt="MY HARDWARES" className="h-8" /></Link>
+          <Link to="/admin" className="flex items-center"><img src="/logo-full.png" alt="MY HARDWARES" className="h-10 w-auto max-w-[140px] object-contain" /></Link>
           <button onClick={() => setSidebar(false)} className="lg:hidden p-1"><X className="w-5 h-5" /></button>
         </div>
         <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-140px)]">
