@@ -7,7 +7,7 @@
 create or replace function prevent_role_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_admin() then
+  if not is_admin() and nullif(current_setting('app.allow_role_change', true), '') is null then
     if new.role is distinct from old.role then
       raise exception 'Customers cannot modify user roles';
     end if;

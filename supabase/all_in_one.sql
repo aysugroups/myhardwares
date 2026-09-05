@@ -328,10 +328,14 @@ create index if not exists idx_notifications_admin on notifications(user_id) whe
 -- 3. FUNCTIONS, TRIGGERS & RPCs
 -- ============================================================
 
--- ---------- Admin check (avoids RLS recursion) ----------
+-- ---------- Admin check (avoids RLS recursion & recognizes superuser / service_role) ----------
 create or replace function is_admin()
 returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+  select (
+    current_user in ('postgres', 'service_role', 'supabase_admin')
+    or (auth.jwt() ->> 'role') = 'service_role'
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 $$;
 
 -- ---------- New user -> profile (strictly sets role = customer) ----------
@@ -362,10 +366,24 @@ create trigger on_auth_user_created after insert on auth.users
 create or replace function promote_admin(p_email text)
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  if auth.uid() is not null and not is_admin() then
+  if not is_admin() then
     raise exception 'Not authorized to promote administrators';
   end if;
-  update public.profiles set role = 'admin' where lower(email) = lower(p_email);
+
+  if p_email is null or length(trim(p_email)) = 0 then
+    raise exception 'Email address is required';
+  end if;
+
+  -- Allow role change within this trusted transaction
+  perform set_config('app.allow_role_change', 'on', true);
+
+  update public.profiles
+  set role = 'admin'
+  where lower(email) = lower(trim(p_email));
+
+  if not found then
+    raise exception 'No profile found with email %', p_email;
+  end if;
 end $$;
 
 revoke execute on function promote_admin(text) from public, anon, authenticated;
@@ -555,7 +573,7 @@ create trigger t_notify_low_stock after update of stock on products for each row
 create or replace function prevent_role_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_admin() then
+  if not is_admin() and nullif(current_setting('app.allow_role_change', true), '') is null then
     if new.role is distinct from old.role then
       raise exception 'Customers cannot modify user roles';
     end if;
