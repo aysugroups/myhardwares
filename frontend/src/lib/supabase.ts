@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || ''
-const anonKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
+const rawUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || ''
+const rawKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
 
-// True only when real credentials are present (not the placeholder defaults).
+const url = typeof rawUrl === 'string' ? rawUrl.trim() : ''
+const anonKey = typeof rawKey === 'string' ? rawKey.trim() : ''
+
+// True only when real credentials are present (not empty and not placeholder defaults).
 export const isSupabaseConfigured =
   !!url &&
   !!anonKey &&
