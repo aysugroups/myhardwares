@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { notificationService } from '@/services/notificationService'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { cn, formatDateTime } from '@/lib/utils'
 
 const NAV = [
@@ -98,7 +99,11 @@ export function AdminLayout() {
           </div>
         </header>
 
-        <main className="p-4 md:p-6"><Outlet /></main>
+        <main className="p-4 md:p-6">
+          <ErrorBoundary sectionName="Admin Page">
+            <Outlet />
+          </ErrorBoundary>
+        </main>
       </div>
     </div>
   )

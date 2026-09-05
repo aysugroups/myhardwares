@@ -36,7 +36,7 @@ export default function Cart() {
     setApplying(true)
     const res = await couponService.validate(code, subtotal, user?.id)
     setApplying(false)
-    if (res.valid) { setDiscount(res.discount); setAppliedCode(code.trim().toUpperCase()); toast.success(res.message || 'Coupon applied') }
+    if (res.valid) { setDiscount(res.discount || 0); setAppliedCode(code.trim().toUpperCase()); toast.success(res.message || 'Coupon applied') }
     else { setDiscount(0); setAppliedCode(null); toast.error(res.message || 'Invalid coupon') }
   }
 

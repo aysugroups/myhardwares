@@ -81,7 +81,7 @@ export default function Checkout() {
     if (!code.trim()) return
     const res = await couponService.validate(code, subtotal, user.id)
     if (res.valid) {
-      setDiscount(res.discount)
+      setDiscount(res.discount || 0)
       setAppliedCode(code.trim().toUpperCase())
       toast.success('Coupon applied')
     } else {

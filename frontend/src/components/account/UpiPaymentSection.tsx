@@ -136,7 +136,7 @@ export function UpiPaymentSection({ order, onConfirmed }: Props) {
           onClick={handleHavePaid}
           loading={submitting}
           disabled={confirmedLocally}
-          variant={confirmedLocally ? 'outline' : 'primary'}
+          variant={confirmedLocally ? 'secondary' : 'primary'}
           fullWidth
           size="lg"
           data-testid="i-have-paid-btn"

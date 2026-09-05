@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Upload, Star, Trash2, Loader2 } from 'lucide-react'
+import { ChevronLeft, Upload, Star, Trash2, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { productAdminService } from '@/services/productAdminService'
 import { categoryService } from '@/services/categoryService'
