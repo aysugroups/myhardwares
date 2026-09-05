@@ -10,6 +10,7 @@ import { categoryService } from '@/services/categoryService'
 import { productService } from '@/services/productService'
 import { settingsService } from '@/services/settingsService'
 import { formatINR } from '@/lib/utils'
+import myHardwaresLogo from '@/assets/my-hardwares-logo.png'
 
 const NAV = [
   { label: 'Home', to: '/' },
@@ -101,7 +102,7 @@ export function Header() {
           </button>
 
           <Link to="/" className="flex items-center shrink-0" data-testid="logo-link">
-            <img src="/logo-full.png" alt="MY HARDWARES" className="h-12 md:h-14 w-auto max-w-[150px] object-contain shrink-0" />
+            <img src={myHardwaresLogo} alt="MY HARDWARES" className="h-12 md:h-14 w-auto max-w-[150px] object-contain shrink-0" />
           </Link>
 
           {/* Search */}
@@ -260,7 +261,7 @@ function MobileMenu({ open, onClose, categories, user, logout }: any) {
           >
             <div className="flex items-center justify-between p-4 border-b border-line">
               <Link to="/" onClick={onClose} className="flex items-center">
-                <img src="/logo-full.png" alt="MY HARDWARES" className="h-10 w-auto max-w-[130px] object-contain" />
+                <img src={myHardwaresLogo} alt="MY HARDWARES" className="h-10 w-auto max-w-[130px] object-contain" />
               </Link>
               <button onClick={onClose} className="p-2 text-ink" data-testid="mobile-menu-close"><X className="w-6 h-6" /></button>
             </div>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/authService'
 import { friendlyError } from '@/lib/utils'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import myHardwaresLogo from '@/assets/my-hardwares-logo.png'
 
 export default function AdminLogin() {
   const navigate = useNavigate()
@@ -38,7 +39,7 @@ export default function AdminLogin() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="text-center mb-6">
           <Link to="/" className="inline-block">
-            <img src="/logo-full.png" alt="MY HARDWARES" className="h-16 w-auto max-w-[180px] mx-auto object-contain" />
+            <img src={myHardwaresLogo} alt="MY HARDWARES" className="h-16 w-auto max-w-[180px] mx-auto object-contain" />
           </Link>
         </div>
         <div className="card p-8">

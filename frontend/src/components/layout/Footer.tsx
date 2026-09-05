@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { settingsService } from '@/services/settingsService'
+import myHardwaresLogo from '@/assets/my-hardwares-logo.png'
 
 export function Footer() {
   const [email, setEmail] = useState('')
@@ -42,7 +43,7 @@ export function Footer() {
       <div className="container-x pb-14 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
         <div className="col-span-2 lg:col-span-2">
           <Link to="/" className="inline-block mb-4">
-            <img src="/logo-full.png" alt="MY HARDWARES" className="h-14 w-auto max-w-[160px] object-contain" />
+            <img src={myHardwaresLogo} alt="MY HARDWARES" className="h-14 w-auto max-w-[160px] object-contain" />
           </Link>
           <p className="text-ink-muted text-sm max-w-sm">Premium locks, furniture fittings, kitchen &amp; architectural hardware, tools and accessories. Quality you can trust.</p>
           <div className="flex gap-2 mt-5">
