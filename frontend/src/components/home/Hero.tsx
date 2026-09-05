@@ -17,20 +17,20 @@ export function Hero() {
           initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
           <span className="chip bg-brand-light text-brand font-semibold mb-5"><Sparkles className="w-3.5 h-3.5" /> Premium Hardware, Delivered</span>
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-ink">
+          <h1 className="font-heading font-bold text-3xl sm:text-5xl lg:text-6xl leading-[1.1] sm:leading-[1.05] tracking-tight text-ink">
             Hardware that feels <span className="text-brand">expensive</span>, priced to trust.
           </h1>
-          <p className="text-ink-muted text-lg mt-6 max-w-lg">
+          <p className="text-ink-muted text-base sm:text-lg mt-4 sm:mt-6 max-w-lg">
             Locks, fittings, kitchen &amp; architectural hardware and pro tools — curated for durability and finish. Shop a showroom-grade collection online.
           </p>
-          <div className="flex flex-wrap gap-3 mt-8">
-            <Link to="/products" className="btn-primary" data-testid="hero-shop-now">Shop Now <ArrowRight className="w-4 h-4" /></Link>
-            <Link to="/categories" className="btn-secondary" data-testid="hero-explore">Explore Products</Link>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
+            <Link to="/products" className="btn-primary text-center justify-center min-h-[44px]" data-testid="hero-shop-now">Shop Now <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/categories" className="btn-secondary text-center justify-center min-h-[44px]" data-testid="hero-explore">Explore Products</Link>
           </div>
-          <div className="flex flex-wrap gap-6 mt-10 text-sm">
-            <span className="flex items-center gap-2 text-ink-muted"><Truck className="w-4 h-4 text-brand" /> Fast delivery</span>
-            <span className="flex items-center gap-2 text-ink-muted"><ShieldCheck className="w-4 h-4 text-brand" /> Genuine products</span>
-            <span className="flex items-center gap-2 text-ink-muted"><Star className="w-4 h-4 text-brand fill-brand" /> Trusted quality</span>
+          <div className="flex flex-wrap gap-4 sm:gap-6 mt-8 sm:mt-10 text-xs sm:text-sm">
+            <span className="flex items-center gap-1.5 sm:gap-2 text-ink-muted"><Truck className="w-4 h-4 text-brand shrink-0" /> Fast delivery</span>
+            <span className="flex items-center gap-1.5 sm:gap-2 text-ink-muted"><ShieldCheck className="w-4 h-4 text-brand shrink-0" /> Genuine products</span>
+            <span className="flex items-center gap-1.5 sm:gap-2 text-ink-muted"><Star className="w-4 h-4 text-brand fill-brand shrink-0" /> Trusted quality</span>
           </div>
         </motion.div>
 

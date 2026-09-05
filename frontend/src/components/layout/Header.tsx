@@ -250,41 +250,105 @@ export function Header() {
 }
 
 function MobileMenu({ open, onClose, categories, user, logout }: any) {
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [open])
+
   return (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[60] lg:hidden">
-          <motion.div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.div
-            initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'tween', duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 top-0 h-full w-[85%] max-w-sm bg-white overflow-y-auto"
+            className="absolute inset-0 bg-ink/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'tween', duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-0 top-0 h-full w-[85%] max-w-sm bg-white overflow-y-auto flex flex-col shadow-2xl"
           >
-            <div className="flex items-center justify-between p-4 border-b border-line">
+            <div className="flex items-center justify-between p-4 border-b border-line sticky top-0 bg-white/95 backdrop-blur z-10">
               <Link to="/" onClick={onClose} className="flex items-center">
                 <img src={myHardwaresLogo} alt="MY HARDWARES" className="h-10 w-auto max-w-[130px] object-contain" />
               </Link>
-              <button onClick={onClose} className="p-2 text-ink" data-testid="mobile-menu-close"><X className="w-6 h-6" /></button>
+              <button
+                onClick={onClose}
+                className="p-2.5 -mr-1 rounded-full text-ink hover:bg-warm min-w-[44px] min-h-[44px] flex items-center justify-center"
+                data-testid="mobile-menu-close"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="p-4 space-y-1">
+            <div className="p-4 space-y-1 flex-1">
               {NAV.map((n) => (
-                <Link key={n.to} to={n.to} onClick={onClose} className="block px-3 py-3 rounded-xl hover:bg-warm font-medium text-ink">{n.label}</Link>
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  onClick={onClose}
+                  className="block px-3.5 py-3 rounded-xl hover:bg-warm font-medium text-ink min-h-[44px] flex items-center"
+                >
+                  {n.label}
+                </Link>
               ))}
-              <div className="h-px bg-line my-2" />
-              <p className="px-3 py-1 text-xs font-semibold uppercase text-ink-muted">Categories</p>
+              <div className="h-px bg-line my-3" />
+              <p className="px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-ink-muted">Categories</p>
               {categories.map((c: any) => (
-                <Link key={c.id} to={`/category/${c.slug}`} onClick={onClose} className="block px-3 py-2.5 rounded-xl hover:bg-warm text-sm text-ink">{c.name}</Link>
+                <Link
+                  key={c.id}
+                  to={`/category/${c.slug}`}
+                  onClick={onClose}
+                  className="block px-3.5 py-2.5 rounded-xl hover:bg-warm text-sm text-ink min-h-[40px] flex items-center"
+                >
+                  {c.name}
+                </Link>
               ))}
-              <div className="h-px bg-line my-2" />
+              <div className="h-px bg-line my-3" />
               {user ? (
                 <>
-                  <Link to="/account" onClick={onClose} className="block px-3 py-3 rounded-xl hover:bg-warm font-medium text-ink">My Account</Link>
-                  {user.role === 'admin' && <Link to="/admin" onClick={onClose} className="block px-3 py-3 rounded-xl hover:bg-brand-light font-semibold text-brand">Admin Panel</Link>}
-                  <button onClick={() => { logout(); onClose() }} className="w-full text-left px-3 py-3 rounded-xl text-red-500">Logout</button>
+                  <Link
+                    to="/account"
+                    onClick={onClose}
+                    className="block px-3.5 py-3 rounded-xl hover:bg-warm font-medium text-ink min-h-[44px] flex items-center"
+                  >
+                    My Account
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={onClose}
+                      className="block px-3.5 py-3 rounded-xl hover:bg-brand-light font-semibold text-brand min-h-[44px] flex items-center"
+                    >
+                      Admin Panel
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => { logout(); onClose() }}
+                    className="w-full text-left px-3.5 py-3 rounded-xl text-red-500 font-medium min-h-[44px] flex items-center hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
                 </>
               ) : (
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <Link to="/login" onClick={onClose} className="btn-secondary text-center">Login</Link>
-                  <Link to="/register" onClick={onClose} className="btn-primary text-center">Register</Link>
+                <div className="grid grid-cols-2 gap-2.5 pt-2">
+                  <Link to="/login" onClick={onClose} className="btn-secondary text-center py-2.5 text-sm min-h-[44px] flex items-center justify-center">
+                    Login
+                  </Link>
+                  <Link to="/register" onClick={onClose} className="btn-primary text-center py-2.5 text-sm min-h-[44px] flex items-center justify-center">
+                    Register
+                  </Link>
                 </div>
               )}
             </div>

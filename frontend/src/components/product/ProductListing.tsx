@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react'
@@ -28,6 +28,17 @@ export function ProductListing({
 }) {
   const [params, setParams] = useSearchParams()
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [drawerOpen])
 
   const page = parseInt(params.get('page') || '1', 10)
   const sort = (params.get('sort') || 'newest') as any

@@ -82,10 +82,10 @@ export function ProductCard({ product, index = 0 }: { product: any; index?: numb
           </button>
         </div>
       </Link>
-      <div className="p-4">
+      <div className="p-3.5 sm:p-4">
         {product.brand?.name && <p className="text-xs font-semibold uppercase tracking-wide text-brand mb-1">{product.brand.name}</p>}
         <Link to={`/products/${product.slug}`}>
-          <h3 className="font-medium text-ink line-clamp-2 min-h-[2.75rem] hover:text-brand transition-colors">{product.name}</h3>
+          <h3 className="font-medium text-ink line-clamp-2 min-h-[2.5rem] sm:min-h-[2.75rem] text-sm sm:text-base hover:text-brand transition-colors">{product.name}</h3>
         </Link>
         <div className="mt-1.5"><Rating value={product.rating || 0} count={product.review_count} /></div>
         <div className="mt-3 flex items-end justify-between gap-2">
@@ -95,7 +95,7 @@ export function ProductCard({ product, index = 0 }: { product: any; index?: numb
             disabled={stock === 'out'}
             aria-label="Add to cart"
             data-testid={`add-cart-btn-${product.slug}`}
-            className="shrink-0 w-10 h-10 rounded-full bg-brand-light text-brand hover:bg-brand hover:text-white transition-colors flex items-center justify-center disabled:opacity-40 disabled:hover:bg-brand-light disabled:hover:text-brand"
+            className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-brand-light text-brand hover:bg-brand hover:text-white transition-colors flex items-center justify-center disabled:opacity-40 disabled:hover:bg-brand-light disabled:hover:text-brand"
           >
             <ShoppingBag className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
           </button>

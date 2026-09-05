@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
@@ -14,21 +15,32 @@ export function CartDrawer() {
   const setQty = useCartStore((s) => s.setQty)
   const remove = useCartStore((s) => s.remove)
 
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [open])
+
   const go = (path: string) => { setOpen(false); navigate(path) }
 
   return (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[70]">
-          <motion.div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
+          <motion.div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
           <motion.aside
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'tween', duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-0 h-full w-full max-w-md bg-white flex flex-col shadow-dropdown"
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'tween', duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute right-0 top-0 h-full w-full max-w-md bg-white flex flex-col shadow-2xl"
             data-testid="cart-drawer"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line sticky top-0 bg-white/95 backdrop-blur z-10">
               <h3 className="font-heading font-semibold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-brand" /> Your Cart</h3>
-              <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-warm" data-testid="cart-close"><X className="w-5 h-5" /></button>
+              <button onClick={() => setOpen(false)} className="p-2.5 -mr-1 rounded-full hover:bg-warm min-w-[44px] min-h-[44px] flex items-center justify-center" data-testid="cart-close" aria-label="Close cart"><X className="w-5 h-5" /></button>
             </div>
 
             {items.length === 0 ? (
