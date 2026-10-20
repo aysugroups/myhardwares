@@ -1,37 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ShoppingCart, ChevronRight, CheckCircle2, Clock } from 'lucide-react'
-import { toast } from 'sonner'
+import { Search, ShoppingCart, ChevronRight } from 'lucide-react'
 import { adminService } from '@/services/adminService'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { Button } from '@/components/ui/Button'
 import { STATUS_COLOR, ORDER_STATUS_LABEL, ORDER_STATUSES } from '@/lib/constants'
 import { formatINR, formatDate } from '@/lib/utils'
 
 export default function AdminOrders() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
-  const [verifyingId, setVerifyingId] = useState<string | null>(null)
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['admin-orders', search, status],
     queryFn: () => adminService.orders({ search, status }),
   })
-
-  const verifyPayment = async (orderId: string, orderNumber: string) => {
-    if (!confirm(`Verify payment for order ${orderNumber}? This will deduct inventory and mark the order as Processing.`)) return
-    setVerifyingId(orderId)
-    try {
-      await adminService.verifyManualPayment(orderId)
-      toast.success(`Payment verified for order ${orderNumber}`)
-      refetch()
-    } catch (e: any) {
-      toast.error(e.message || 'Payment verification failed')
-    } finally {
-      setVerifyingId(null)
-    }
-  }
 
   return (
     <div>
@@ -104,51 +87,30 @@ export default function AdminOrders() {
                     </td>
                     <td className="p-4 font-medium">{formatINR(o.total)}</td>
                     <td className="p-4">
-                      <div className="flex flex-col gap-1 items-start">
-                        <span
-                          className={`chip ${
-                            o.payment_status === 'paid'
-                              ? 'bg-green-100 text-green-700'
-                              : o.payment_status === 'failed'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {o.payment_status.toUpperCase()}
-                        </span>
-                        {o.payment_confirmation_requested && o.payment_status !== 'paid' && (
-                          <span className="text-[11px] font-medium text-blue-700 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
-                            <Clock className="w-3 h-3" /> Paid Submitted
-                          </span>
-                        )}
-                      </div>
+                      <span
+                        className={`chip ${
+                          o.payment_status === 'paid'
+                            ? 'bg-green-100 text-green-700'
+                            : o.payment_status === 'failed'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {o.payment_status.toUpperCase()}
+                      </span>
                     </td>
                     <td className="p-4">
                       <span className={`chip ${STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
                     </td>
                     <td className="p-4 text-ink-muted">{formatDate(o.created_at)}</td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {o.payment_status !== 'paid' && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => verifyPayment(o.id, o.order_number)}
-                            loading={verifyingId === o.id}
-                            className="text-xs"
-                            data-testid={`verify-payment-${o.order_number}`}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Verify
-                          </Button>
-                        )}
-                        <Link
-                          to={`/admin/orders/${o.id}`}
-                          className="p-2 rounded-lg hover:bg-white text-ink-muted hover:text-brand inline-block"
-                          data-testid={`view-order-${o.order_number}`}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Link>
-                      </div>
+                      <Link
+                        to={`/admin/orders/${o.id}`}
+                        className="p-2 rounded-lg hover:bg-white text-ink-muted hover:text-brand inline-block"
+                        data-testid={`view-order-${o.order_number}`}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
                     </td>
                   </tr>
                 ))}

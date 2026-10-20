@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, CheckCircle2, Clock, MessageCircle } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { adminService } from '@/services/adminService'
-import { orderService } from '@/services/orderService'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { OrderTimeline } from '@/components/account/OrderTimeline'
@@ -21,7 +20,6 @@ export default function AdminOrderDetail() {
   const [tracking, setTracking] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const [verifyingPayment, setVerifyingPayment] = useState(false)
 
   useEffect(() => {
     if (order) {
@@ -48,28 +46,6 @@ export default function AdminOrderDetail() {
     }
   }
 
-  const handleVerifyManualPayment = async () => {
-    if (!confirm(`Verify UPI payment for order ${order.order_number}? This will atomically deduct inventory and update the status to Processing.`)) {
-      return
-    }
-
-    setVerifyingPayment(true)
-    try {
-      await adminService.verifyManualPayment(order.id, note || 'UPI payment verified by admin')
-      toast.success('Payment verified successfully! Stock deducted and status updated to Processing.')
-      refetch()
-    } catch (e: any) {
-      toast.error(e.message || 'Payment verification failed')
-    } finally {
-      setVerifyingPayment(false)
-    }
-  }
-
-  const openWhatsApp = () => {
-    const url = orderService.generateWhatsAppOrderUrl(order)
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
   return (
     <div>
       <Link to="/admin/orders" className="text-ink-muted hover:text-brand flex items-center gap-1 text-sm mb-4">
@@ -82,10 +58,13 @@ export default function AdminOrderDetail() {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`chip ${order.payment_status === 'paid'
+            className={`chip ${
+              order.payment_status === 'paid'
                 ? 'bg-green-100 text-green-700'
+                : order.payment_status === 'failed'
+                ? 'bg-red-100 text-red-700'
                 : 'bg-amber-100 text-amber-700'
-              }`}
+            }`}
           >
             Payment: {order.payment_status.toUpperCase()}
           </span>
@@ -141,51 +120,8 @@ export default function AdminOrderDetail() {
         </div>
 
         <div className="space-y-6">
-          {/* Payment Verification Card */}
-          <div className="card p-6 space-y-3" data-testid="admin-payment-card">
-            <h3 className="font-heading font-semibold">Payment & Verification</h3>
-            <div className="text-sm space-y-1">
-              <p className="text-ink-muted">
-                Status:{' '}
-                <span className={`font-semibold ${order.payment_status === 'paid' ? 'text-green-600' : 'text-amber-600'}`}>
-                  {order.payment_status.toUpperCase()}
-                </span>
-              </p>
-              <p className="text-ink-muted">
-                Method: <span className="font-medium text-ink">{order.payment_method || 'UPI QR'}</span>
-              </p>
-              {order.payment_confirmation_requested && (
-                <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded-lg flex items-center gap-1 mt-1">
-                  <Clock className="w-3.5 h-3.5" /> Customer requested payment confirmation
-                </p>
-              )}
-            </div>
-
-            {order.payment_status !== 'paid' ? (
-              <div className="pt-2">
-                <Button
-                  onClick={handleVerifyManualPayment}
-                  loading={verifyingPayment}
-                  fullWidth
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  data-testid="verify-payment-btn"
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1.5" /> Verify Payment (Deduct Stock & Process)
-                </Button>
-                <p className="text-[11px] text-ink-muted mt-1.5 text-center">
-                  Only authorized admins can verify. Stock is reduced safely and atomically.
-                </p>
-              </div>
-            ) : (
-              <div className="p-3 bg-green-50 rounded-xl border border-green-200 text-xs text-green-800 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Payment verified. Stock was deducted upon confirmation.</span>
-              </div>
-            )}
-          </div>
-
           <div className="card p-6">
-            <h3 className="font-heading font-semibold mb-3">Update Order Status</h3>
+            <h3 className="font-heading font-semibold mb-3">Update Status</h3>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
@@ -222,13 +158,29 @@ export default function AdminOrderDetail() {
               {addr.line1}, {addr.city}, {addr.state} — {addr.pincode}
             </p>
             <p className="text-sm text-ink-muted">{addr.phone}</p>
+          </div>
 
-            <button
-              onClick={openWhatsApp}
-              className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold transition"
-            >
-              <MessageCircle className="w-4 h-4" /> Open WhatsApp Chat (7010586606)
-            </button>
+          <div className="card p-6 text-sm space-y-1.5" data-testid="admin-payment-card">
+            <h3 className="font-heading font-semibold mb-2">Payment</h3>
+            <p className="text-ink-muted">
+              Status:{' '}
+              <span className={`font-semibold ${order.payment_status === 'paid' ? 'text-green-600' : order.payment_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+                {order.payment_status.toUpperCase()}
+              </span>
+            </p>
+            <p className="text-ink-muted">
+              Gateway: <span className="font-medium text-ink">Razorpay</span>
+            </p>
+            {order.razorpay_order_id && (
+              <p className="text-ink-muted break-all">
+                Razorpay Order ID: <span className="font-mono text-xs text-ink">{order.razorpay_order_id}</span>
+              </p>
+            )}
+            {order.razorpay_payment_id && (
+              <p className="text-ink-muted break-all">
+                Payment ID: <span className="font-mono text-xs text-ink">{order.razorpay_payment_id}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

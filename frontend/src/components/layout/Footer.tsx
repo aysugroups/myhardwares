@@ -102,7 +102,7 @@ export function Footer() {
       <div className="border-t border-gray-100">
         <div className="container-x py-5 flex flex-col md:flex-row items-center justify-between gap-2 text-sm text-ink-muted">
           <p>© {new Date().getFullYear()} MY HARDWARES. All rights reserved.</p>
-          <p>Direct UPI QR & WhatsApp Verified Orders</p>
+          <p>Secure payments powered by Razorpay</p>
         </div>
       </div>
     </footer>

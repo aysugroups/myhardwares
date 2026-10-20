@@ -16,12 +16,23 @@ export const adminService = {
     const from = (page - 1) * pageSize
     let q = supabase
       .from('orders')
-      .select('id, order_number, user_id, total, payment_status, status, created_at, address, profile:profiles(full_name, email)', { count: 'exact' })
+      .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, created_at, address, profile:profiles(full_name, email)', { count: 'exact' })
       .order('created_at', { ascending: false })
     if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status)
     if (opts.search) q = q.ilike('order_number', `%${opts.search}%`)
     const { data, count, error } = await q.range(from, from + pageSize - 1)
-    if (error) throw error
+    if (error) {
+      // Fallback if PostgREST schema cache has not yet linked orders -> profiles FK
+      let fallbackQ = supabase
+        .from('orders')
+        .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, created_at, address', { count: 'exact' })
+        .order('created_at', { ascending: false })
+      if (opts.status && opts.status !== 'all') fallbackQ = fallbackQ.eq('status', opts.status)
+      if (opts.search) fallbackQ = fallbackQ.ilike('order_number', `%${opts.search}%`)
+      const fb = await fallbackQ.range(from, from + pageSize - 1)
+      if (fb.error) throw fb.error
+      return { items: fb.data || [], total: fb.count || 0 }
+    }
     return { items: data || [], total: count || 0 }
   },
 
@@ -31,7 +42,16 @@ export const adminService = {
       .select(`*, items:order_items(*), history:order_status_history(*), profile:profiles(full_name, email, phone)`)
       .eq('id', id)
       .single()
-    if (error) throw error
+    if (error) {
+      const fb = await supabase
+        .from('orders')
+        .select(`*, items:order_items(*), history:order_status_history(*)`)
+        .eq('id', id)
+        .single()
+      if (fb.error) throw fb.error
+      if (fb.data?.history) fb.data.history.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      return fb.data
+    }
     if (data?.history) data.history.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     return data
   },
@@ -42,16 +62,6 @@ export const adminService = {
     const { error } = await supabase.from('orders').update(patch).eq('id', orderId)
     if (error) throw error
     await supabase.from('order_status_history').insert({ order_id: orderId, status, note: note || null })
-  },
-
-  async verifyManualPayment(orderId: string, notes?: string) {
-    if (!isSupabaseConfigured) throw new Error('Database not configured')
-    const { data, error } = await supabase.rpc('admin_verify_manual_payment', {
-      p_order_id: orderId,
-      p_notes: notes || null,
-    })
-    if (error) throw error
-    return data
   },
 
   async customers() {

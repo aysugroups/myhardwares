@@ -195,6 +195,7 @@ create table if not exists coupon_usage (
   order_id uuid,
   created_at timestamptz not null default now()
 );
+create unique index if not exists idx_coupon_usage_order_unique on coupon_usage(coupon_id, order_id) where order_id is not null;
 
 -- ---------- Orders ----------
 create table if not exists orders (
@@ -210,18 +211,21 @@ create table if not exists orders (
   total numeric(12,2) not null,
   razorpay_order_id text,
   razorpay_payment_id text,
-  payment_method text not null default 'upi_qr',
+  payment_method text not null default 'razorpay',
   payment_confirmation_requested boolean not null default false,
   payment_status payment_status not null default 'pending',
   status order_status not null default 'pending_payment',
   tracking_number text,
   notes text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint orders_user_id_profiles_fkey foreign key (user_id) references profiles(id) on delete set null
 );
 create index if not exists idx_orders_user on orders(user_id);
 create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_orders_rzp on orders(razorpay_order_id);
+create unique index if not exists idx_orders_rzp_order_unique on orders(razorpay_order_id) where razorpay_order_id is not null;
+create unique index if not exists idx_orders_rzp_payment_unique on orders(razorpay_payment_id) where razorpay_payment_id is not null;
 create index if not exists idx_orders_pay_status on orders(payment_status);
 
 create table if not exists order_items (
@@ -268,7 +272,8 @@ create table if not exists reviews (
   is_verified boolean not null default false,
   is_visible boolean not null default true,
   created_at timestamptz not null default now(),
-  unique (product_id, user_id)
+  unique (product_id, user_id),
+  constraint reviews_user_id_profiles_fkey foreign key (user_id) references profiles(id) on delete cascade
 );
 
 create table if not exists review_images (

@@ -13,12 +13,20 @@ export async function hmacHex(secret: string, message: string): Promise<string> 
     ['sign'],
   )
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message))
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let out = 0
-  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return out === 0
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const enc = new TextEncoder()
+  const aBytes = enc.encode(a)
+  const bBytes = enc.encode(b)
+  if (aBytes.length !== bBytes.length || aBytes.length === 0) return false
+  let diff = 0
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i]
+  }
+  return diff === 0
 }

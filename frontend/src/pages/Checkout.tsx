@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Plus, QrCode, MessageCircle, Check, ShieldCheck } from 'lucide-react'
+import { MapPin, Plus, CreditCard, ShieldCheck, Check, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Seo } from '@/components/common/Seo'
 import { Button } from '@/components/ui/Button'
@@ -12,7 +12,8 @@ import { useAuthStore } from '@/store/authStore'
 import { addressService } from '@/services/addressService'
 import { settingsService } from '@/services/settingsService'
 import { couponService } from '@/services/couponService'
-import { orderService } from '@/services/orderService'
+import { paymentService } from '@/services/paymentService'
+import { loadRazorpay } from '@/lib/razorpay'
 import { effectivePrice, formatINR } from '@/lib/utils'
 
 export default function Checkout() {
@@ -27,7 +28,13 @@ export default function Checkout() {
   const [code, setCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [appliedCode, setAppliedCode] = useState<string | null>(null)
-  const [placingOrder, setPlacingOrder] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+
+  // Synchronous lock to prevent rapid double-clicks before state re-render
+  const inFlightRef = useRef(false)
+  // Cache pending order ID by cart+address+coupon fingerprint so retries reuse the same unpaid order
+  const pendingOrderRef = useRef<{ fingerprint: string; orderId: string } | null>(null)
 
   const { data: addresses = [], refetch } = useQuery({
     queryKey: ['addresses', user?.id],
@@ -43,13 +50,21 @@ export default function Checkout() {
     if (addresses.length && !selectedAddr) {
       setSelectedAddr(addresses.find((a: any) => a.is_default)?.id || addresses[0].id)
     }
-  }, [addresses])
+  }, [addresses, selectedAddr])
 
   const freeThreshold = settings?.free_shipping_threshold ?? 999
   const shipping = subtotal >= freeThreshold ? 0 : settings?.shipping_fee ?? 79
   const tax = Math.round(((subtotal - discount) * (settings?.tax_percent ?? 0)) / 100)
   const total = Math.max(0, subtotal - discount) + shipping + tax
   const address = useMemo(() => addresses.find((a: any) => a.id === selectedAddr), [addresses, selectedAddr])
+
+  const checkoutFingerprint = useMemo(() => {
+    const itemsKey = items
+      .map((i) => `${i.product_id}:${i.quantity}`)
+      .sort()
+      .join('|')
+    return `${user?.id || ''}::${selectedAddr || ''}::${appliedCode || ''}::${itemsKey}`
+  }, [user?.id, selectedAddr, appliedCode, items])
 
   if (!user) {
     return (
@@ -78,7 +93,7 @@ export default function Checkout() {
   }
 
   const applyCoupon = async () => {
-    if (!code.trim()) return
+    if (!code.trim() || paying || verifying) return
     const res = await couponService.validate(code, subtotal, user.id)
     if (res.valid) {
       setDiscount(res.discount || 0)
@@ -91,48 +106,105 @@ export default function Checkout() {
     }
   }
 
-  const placeOrder = async () => {
+  const pay = async () => {
+    if (inFlightRef.current || paying || verifying) return
     if (!address) {
       toast.error('Please select a delivery address')
       return
     }
+    if (!paymentService.isRazorpayConfigured) {
+      toast.error('Payments not configured yet. Please add Razorpay keys.')
+      return
+    }
 
-    setPlacingOrder(true)
+    inFlightRef.current = true
+    setPaying(true)
+
     try {
-      // 1. Create order in real Supabase database (server calculates authoritative price & totals)
-      const res = await orderService.createManualOrder({
-        userId: user.id,
+      const ok = await loadRazorpay()
+      if (!ok || typeof (window as any).Razorpay !== 'function') {
+        throw new Error('Could not load Razorpay payment gateway. Please check your internet connection and try again.')
+      }
+
+      const reusableOrderId =
+        pendingOrderRef.current?.fingerprint === checkoutFingerprint
+          ? pendingOrderRef.current.orderId
+          : null
+
+      // Server computes the real amount and validates stock/coupons; client totals are never trusted.
+      const order = await paymentService.createOrder({
         items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
         address,
         coupon_code: appliedCode,
+        order_id: reusableOrderId,
       })
 
-      // 2. Clear customer's local and server cart
-      clear()
-
-      // 3. Format & trigger WhatsApp order confirmation message to 917010586606
-      const waUrl = orderService.generateWhatsAppOrderUrl({
-        order_number: res.order_number,
-        address,
-        items,
-        subtotal: res.breakdown.subtotal,
-        shipping: res.breakdown.shipping,
-        discount: res.breakdown.discount,
-        total: res.breakdown.total,
-      })
-
-      try {
-        window.open(waUrl, '_blank', 'noopener,noreferrer')
-      } catch {
-        // Fallback handled on order detail page
+      pendingOrderRef.current = {
+        fingerprint: checkoutFingerprint,
+        orderId: order.order_id,
       }
 
-      toast.success('Order placed successfully! Complete your UPI payment below.')
-      navigate(`/account/orders/${res.order_id}`)
+      let callbackHandled = false
+
+      const rzp = new (window as any).Razorpay({
+        key: order.key_id || paymentService.keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'MY HARDWARES',
+        description: `Order ${order.order_number || ''}`.trim(),
+        order_id: order.razorpay_order_id,
+        prefill: {
+          name: address.full_name,
+          contact: address.phone,
+          email: user.email,
+        },
+        theme: { color: '#FF5E1A' },
+        handler: async (resp: any) => {
+          callbackHandled = true
+          setVerifying(true)
+          try {
+            const res = await paymentService.verify({
+              order_id: order.order_id,
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            })
+            pendingOrderRef.current = null
+            await clear()
+            toast.success('Payment successful!')
+            navigate(`/account/orders/${res.order_id}`)
+          } catch (e: any) {
+            toast.error(e.message || 'Payment verification failed')
+            navigate(`/account/orders/${order.order_id}`)
+          } finally {
+            inFlightRef.current = false
+            setVerifying(false)
+            setPaying(false)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (callbackHandled) return
+            paymentService.markFailed(order.order_id)
+            inFlightRef.current = false
+            setPaying(false)
+            toast.message('Payment cancelled. You can retry payment anytime.')
+          },
+        },
+      })
+
+      rzp.on('payment.failed', (r: any) => {
+        const desc = r?.error?.description || 'Payment could not be completed'
+        toast.error('Payment failed: ' + desc)
+        paymentService.markFailed(order.order_id)
+      })
+
+      rzp.open()
     } catch (e: any) {
-      toast.error(e.message || 'Could not place order')
-    } finally {
-      setPlacingOrder(false)
+      inFlightRef.current = false
+      setPaying(false)
+      setVerifying(false)
+      toast.error(e.message || 'Could not start payment')
     }
   }
 
@@ -151,7 +223,8 @@ export default function Checkout() {
                 </h3>
                 <button
                   onClick={() => setAddingAddr((v) => !v)}
-                  className="text-brand font-semibold text-sm flex items-center gap-1"
+                  disabled={paying || verifying}
+                  className="text-brand font-semibold text-sm flex items-center gap-1 disabled:opacity-50"
                   data-testid="add-address-toggle"
                 >
                   <Plus className="w-4 h-4" /> New
@@ -177,6 +250,7 @@ export default function Checkout() {
                     <button
                       key={a.id}
                       onClick={() => setSelectedAddr(a.id)}
+                      disabled={paying || verifying}
                       className={`text-left p-4 rounded-2xl border-2 transition-colors ${
                         selectedAddr === a.id ? 'border-brand bg-brand-light/40' : 'border-line hover:border-brand/50'
                       }`}
@@ -227,11 +301,14 @@ export default function Checkout() {
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
+                  disabled={paying || verifying}
                   placeholder="Coupon"
                   className="input-field py-2.5 uppercase"
                   data-testid="checkout-coupon"
                 />
-                <Button onClick={applyCoupon} variant="secondary" size="sm">Apply</Button>
+                <Button onClick={applyCoupon} disabled={paying || verifying} variant="secondary" size="sm">
+                  Apply
+                </Button>
               </div>
               {appliedCode && <p className="text-sm text-green-600">✓ {appliedCode} applied</p>}
               <div className="space-y-2.5 text-sm border-t border-line pt-4">
@@ -261,28 +338,25 @@ export default function Checkout() {
                 <span className="font-heading font-bold text-2xl" data-testid="checkout-total">{formatINR(total)}</span>
               </div>
 
-              <div className="p-3 bg-warm rounded-xl text-xs text-ink-muted space-y-1.5">
-                <div className="flex items-center gap-1.5 font-medium text-ink">
-                  <QrCode className="w-4 h-4 text-brand" />
-                  Manual UPI QR Payment
+              {!paymentService.isRazorpayConfigured && (
+                <div className="flex items-start gap-2 text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-3" data-testid="payment-pending">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> Payments are not configured yet. Add your Razorpay keys to enable checkout.
                 </div>
-                <p>
-                  Place order to generate your Order ID, view UPI QR code, and open WhatsApp order notification to <strong>7010586606</strong>.
-                </p>
-              </div>
+              )}
 
               <Button
-                onClick={placeOrder}
-                loading={placingOrder}
-                disabled={!address}
+                onClick={pay}
+                loading={paying || verifying}
+                disabled={!address || paying || verifying}
                 fullWidth
                 size="lg"
-                data-testid="place-order-btn"
+                data-testid="pay-now-btn"
               >
-                <QrCode className="w-5 h-5" /> Place Order & Pay via UPI
+                <CreditCard className="w-5 h-5" />
+                {verifying ? 'Verifying Payment...' : paying ? 'Processing Payment...' : `Pay ${formatINR(total)}`}
               </Button>
               <p className="text-xs text-ink-muted flex items-center gap-1.5 justify-center">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand" /> Verified with MY HARDWARES WhatsApp & UPI
+                <ShieldCheck className="w-3.5 h-3.5 text-brand" /> Secured by Razorpay
               </p>
             </div>
           </div>

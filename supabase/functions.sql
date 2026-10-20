@@ -142,6 +142,9 @@ begin
   return new_stock;
 end $$;
 
+revoke execute on function adjust_inventory(uuid, integer, text, text) from public, anon;
+grant execute on function adjust_inventory(uuid, integer, text, text) to authenticated, service_role, postgres;
+
 -- ---------- Admin dashboard stats (real data) ----------
 create or replace function admin_dashboard_stats()
 returns json language plpgsql security definer set search_path = public as $$
@@ -196,6 +199,9 @@ begin
   return result;
 end $$;
 
+revoke execute on function admin_dashboard_stats() from public, anon;
+grant execute on function admin_dashboard_stats() to authenticated, service_role, postgres;
+
 -- ---------- Admin customers with aggregates ----------
 create or replace function admin_customers()
 returns json language plpgsql security definer set search_path = public as $$
@@ -210,6 +216,9 @@ begin
   ) t;
   return result;
 end $$;
+
+revoke execute on function admin_customers() from public, anon;
+grant execute on function admin_customers() to authenticated, service_role, postgres;
 
 -- ---------- Notify admin on paid order ----------
 create or replace function notify_paid_order()

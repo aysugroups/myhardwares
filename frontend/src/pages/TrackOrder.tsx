@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { Seo } from '@/components/common/Seo'
 import { Button } from '@/components/ui/Button'
 import { OrderTimeline } from '@/components/account/OrderTimeline'
-import { UpiPaymentSection } from '@/components/account/UpiPaymentSection'
 import { orderService } from '@/services/orderService'
 import { STATUS_COLOR, ORDER_STATUS_LABEL } from '@/lib/constants'
 import { formatINR, formatDate } from '@/lib/utils'
@@ -61,33 +60,32 @@ export default function TrackOrder() {
       )}
 
       {order && (
-        <div className="space-y-6">
-          <div className="card p-6">
-            <div className="flex items-center justify-between flex-wrap gap-3 mb-6 pb-6 border-b border-line">
-              <div>
-                <p className="font-heading font-bold text-xl">{order.order_number}</p>
-                <p className="text-sm text-ink-muted">Placed {formatDate(order.created_at)} • {formatINR(order.total)}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`chip ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                  Payment: {order.payment_status.toUpperCase()}
-                </span>
-                <span className={`chip ${STATUS_COLOR[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
-              </div>
+        <div className="card p-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-6 pb-6 border-b border-line">
+            <div>
+              <p className="font-heading font-bold text-xl">{order.order_number}</p>
+              <p className="text-sm text-ink-muted">Placed {formatDate(order.created_at)} • {formatINR(order.total)}</p>
             </div>
-            <OrderTimeline status={order.status} history={order.history} />
-            {order.tracking_number && (
-              <p className="text-sm mt-4 pt-4 border-t border-line">
-                Tracking Number: <strong>{order.tracking_number}</strong>
-              </p>
-            )}
+            <div className="flex items-center gap-2">
+              <span
+                className={`chip ${
+                  order.payment_status === 'paid'
+                    ? 'bg-green-100 text-green-700'
+                    : order.payment_status === 'failed'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                Payment: {order.payment_status.toUpperCase()}
+              </span>
+              <span className={`chip ${STATUS_COLOR[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
+            </div>
           </div>
-
-          {order.payment_status !== 'paid' && (
-            <UpiPaymentSection order={order} onConfirmed={async () => {
-              const updated = await orderService.getByNumber(order.order_number)
-              if (updated) setOrder(updated)
-            }} />
+          <OrderTimeline status={order.status} history={order.history} />
+          {order.tracking_number && (
+            <p className="text-sm mt-4 pt-4 border-t border-line">
+              Tracking Number: <strong>{order.tracking_number}</strong>
+            </p>
           )}
         </div>
       )}
