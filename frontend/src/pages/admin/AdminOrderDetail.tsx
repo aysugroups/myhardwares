@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, PackageCheck, Truck, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { adminService } from '@/services/adminService'
 import { Button } from '@/components/ui/Button'
@@ -20,6 +20,11 @@ export default function AdminOrderDetail() {
   const [tracking, setTracking] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [weight, setWeight] = useState('')
+  const [length, setLength] = useState('')
+  const [breadth, setBreadth] = useState('')
+  const [height, setHeight] = useState('')
+  const [booking, setBooking] = useState(false)
 
   useEffect(() => {
     if (order) {
@@ -31,6 +36,18 @@ export default function AdminOrderDetail() {
   if (isLoading) return <Skeleton className="h-96" />
   if (!order) return <p>Order not found.</p>
   const addr = order.address || {}
+
+  const bookShipway = async () => {
+    const values = [weight, length, breadth, height].map(Number)
+    if (values.some((v) => !Number.isFinite(v) || v <= 0)) { toast.error('Enter valid parcel weight and all three dimensions.'); return }
+    setBooking(true)
+    try {
+      const result = await adminService.createShipwayShipment({ order_id: order.id, weight_grams: values[0], length_cm: values[1], breadth_cm: values[2], height_cm: values[3] })
+      toast.success(result.awb_number ? `Shipment booked. AWB: ${result.awb_number}` : 'Shipment booking accepted by Shipway.')
+      await refetch()
+    } catch (e: any) { toast.error(e.message || 'Shipway booking failed'); await refetch() }
+    finally { setBooking(false) }
+  }
 
   const update = async () => {
     setSaving(true)
@@ -120,6 +137,27 @@ export default function AdminOrderDetail() {
         </div>
 
         <div className="space-y-6">
+          <div className="card p-6" data-testid="shipway-shipment-card">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="font-heading font-semibold">Shipway Shipment</h3>
+              <span className={`chip ${order.shipway_status === 'booked' ? 'bg-green-100 text-green-700' : order.shipway_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{(order.shipway_status || 'not booked').replaceAll('_', ' ').toUpperCase()}</span>
+            </div>
+            {(order.shipway_awb || order.tracking_number) && <div className="rounded-xl bg-warm p-3 mb-3"><p className="text-xs text-ink-muted mb-1">AWB / Tracking number</p><p className="font-mono font-semibold break-all">{order.shipway_awb || order.tracking_number}</p>{order.shipway_booked_at && <p className="text-xs text-ink-muted mt-1">Booked {formatDateTime(order.shipway_booked_at)}</p>}</div>}
+            {order.shipway_error && <p className="text-sm text-red-600 flex gap-2 mb-3"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{order.shipway_error}</p>}
+            {order.shipway_shipment_created ? <p className="text-sm text-green-700 flex gap-2"><PackageCheck className="w-4 h-4" /> Shipment has been created in Shipway.</p> : <>
+              <p className="text-xs text-ink-muted mb-3">Enter packed parcel measurements. Weight in grams; dimensions in centimetres.</p>
+              <label className="block text-xs font-medium mb-1">Parcel weight (grams)</label>
+              <input type="number" min="1" step="1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 750" className="input-field mb-3" />
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div><label className="block text-xs font-medium mb-1">Length (cm)</label><input type="number" min="1" step="1" value={length} onChange={(e) => setLength(e.target.value)} placeholder="L" className="input-field" /></div>
+                <div><label className="block text-xs font-medium mb-1">Breadth (cm)</label><input type="number" min="1" step="1" value={breadth} onChange={(e) => setBreadth(e.target.value)} placeholder="B" className="input-field" /></div>
+                <div><label className="block text-xs font-medium mb-1">Height (cm)</label><input type="number" min="1" step="1" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="H" className="input-field" /></div>
+              </div>
+              <Button onClick={bookShipway} loading={booking} fullWidth disabled={order.shipway_status === 'booking' || (order.payment_status !== 'paid' && String(order.payment_method).toLowerCase() !== 'cod')}><Truck className="w-4 h-4" /> Book Shipment with Shipway</Button>
+              {order.payment_status !== 'paid' && String(order.payment_method).toLowerCase() !== 'cod' && <p className="text-xs text-amber-700 mt-2">Prepaid orders must have verified payment before booking.</p>}
+            </>}
+            <p className="text-[11px] text-ink-muted mt-3">Booking creates a real shipment in Shipway. Confirm parcel measurements before proceeding.</p>
+          </div>
           <div className="card p-6">
             <h3 className="font-heading font-semibold mb-3">Update Status</h3>
             <select

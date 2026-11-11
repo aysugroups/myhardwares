@@ -65,6 +65,7 @@ export default function AdminOrders() {
                   <th className="p-4 font-medium">Amount</th>
                   <th className="p-4 font-medium">Payment</th>
                   <th className="p-4 font-medium">Status</th>
+                  <th className="p-4 font-medium">Shipway</th>
                   <th className="p-4 font-medium">Date</th>
                   <th className="p-4 font-medium text-right">Actions</th>
                 </tr>
@@ -101,6 +102,12 @@ export default function AdminOrders() {
                     </td>
                     <td className="p-4">
                       <span className={`chip ${STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`chip ${o.shipway_shipment_created ? 'bg-green-100 text-green-700' : o.shipway_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {o.shipway_status ? String(o.shipway_status).replaceAll('_', ' ') : 'Not booked'}
+                      </span>
+                      {o.shipway_awb && <p className="text-[11px] text-ink-muted font-mono mt-1">{o.shipway_awb}</p>}
                     </td>
                     <td className="p-4 text-ink-muted">{formatDate(o.created_at)}</td>
                     <td className="p-4 text-right">
