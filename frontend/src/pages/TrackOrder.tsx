@@ -82,10 +82,12 @@ export default function TrackOrder() {
             </div>
           </div>
           <OrderTimeline status={order.status} history={order.history} />
-          {order.tracking_number && (
-            <p className="text-sm mt-4 pt-4 border-t border-line">
-              Tracking Number: <strong>{order.tracking_number}</strong>
-            </p>
+          {(order.shipway_awb || order.tracking_number) && (
+            <div className="text-sm mt-4 pt-4 border-t border-line space-y-1">
+              <p className="text-ink-muted">Courier tracking / AWB</p>
+              <p className="font-mono font-semibold">{order.shipway_awb || order.tracking_number}</p>
+              {order.shipway_status && <p className="text-xs text-ink-muted">Shipway: {String(order.shipway_status).replaceAll('_', ' ')}</p>}
+            </div>
           )}
         </div>
       )}
