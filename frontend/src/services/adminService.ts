@@ -16,7 +16,7 @@ export const adminService = {
     const from = (page - 1) * pageSize
     let q = supabase
       .from('orders')
-      .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, created_at, address, profile:profiles(full_name, email)', { count: 'exact' })
+      .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, shipway_status, shipway_awb, shipway_shipment_created, created_at, address, profile:profiles(full_name, email)', { count: 'exact' })
       .order('created_at', { ascending: false })
     if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status)
     if (opts.search) q = q.ilike('order_number', `%${opts.search}%`)
@@ -25,7 +25,7 @@ export const adminService = {
       // Fallback if PostgREST schema cache has not yet linked orders -> profiles FK
       let fallbackQ = supabase
         .from('orders')
-        .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, created_at, address', { count: 'exact' })
+        .select('id, order_number, user_id, total, payment_status, payment_method, razorpay_order_id, razorpay_payment_id, status, shipway_status, shipway_awb, shipway_shipment_created, created_at, address', { count: 'exact' })
         .order('created_at', { ascending: false })
       if (opts.status && opts.status !== 'all') fallbackQ = fallbackQ.eq('status', opts.status)
       if (opts.search) fallbackQ = fallbackQ.ilike('order_number', `%${opts.search}%`)
@@ -53,6 +53,13 @@ export const adminService = {
       return fb.data
     }
     if (data?.history) data.history.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    return data
+  },
+
+  async createShipwayShipment(input: { order_id: string; weight_grams: number; length_cm: number; breadth_cm: number; height_cm: number }) {
+    const { data, error } = await supabase.functions.invoke('create-shipway-shipment', { body: input })
+    if (error) throw new Error(error.message || 'Could not contact Shipway shipment service')
+    if (!data?.success) throw new Error(data?.error || 'Shipway shipment booking failed')
     return data
   },
 
