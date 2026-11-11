@@ -140,7 +140,7 @@ export default function AdminOrderDetail() {
           <div className="card p-6" data-testid="shipway-shipment-card">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="font-heading font-semibold">Shipway Shipment</h3>
-              <span className={\`chip \${order.shipway_status === 'booked' ? 'bg-green-100 text-green-700' : order.shipway_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}\`}>{(order.shipway_status || 'not booked').replaceAll('_', ' ').toUpperCase()}</span>
+              <span className={`chip ${order.shipway_status === 'booked' ? 'bg-green-100 text-green-700' : order.shipway_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{(order.shipway_status || 'not booked').replaceAll('_', ' ').toUpperCase()}</span>
             </div>
             {(order.shipway_awb || order.tracking_number) && <div className="rounded-xl bg-warm p-3 mb-3"><p className="text-xs text-ink-muted mb-1">AWB / Tracking number</p><p className="font-mono font-semibold break-all">{order.shipway_awb || order.tracking_number}</p>{order.shipway_booked_at && <p className="text-xs text-ink-muted mt-1">Booked {formatDateTime(order.shipway_booked_at)}</p>}</div>}
             {order.shipway_error && <p className="text-sm text-red-600 flex gap-2 mb-3"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{order.shipway_error}</p>}
