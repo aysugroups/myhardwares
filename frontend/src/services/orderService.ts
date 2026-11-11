@@ -4,7 +4,7 @@ const ORDER_SELECT = `
   id, order_number, user_id, address, subtotal, discount, coupon_code,
   shipping, tax, total, razorpay_order_id, razorpay_payment_id,
   payment_method, payment_confirmation_requested,
-  payment_status, status, tracking_number, notes, created_at, updated_at,
+  payment_status, status, tracking_number, shipway_status, shipway_awb, shipway_booked_at, shipway_error, notes, created_at, updated_at,
   items:order_items(id, product_id, product_name, sku, unit_price, quantity, line_total, image_url),
   history:order_status_history(id, status, note, created_at)
 `
