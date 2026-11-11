@@ -30,6 +30,7 @@ export default function Checkout() {
   const [appliedCode, setAppliedCode] = useState<string | null>(null)
   const [paying, setPaying] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'cod'>('razorpay')
 
   // Synchronous lock to prevent rapid double-clicks before state re-render
   const inFlightRef = useRef(false)
@@ -103,6 +104,31 @@ export default function Checkout() {
       setDiscount(0)
       setAppliedCode(null)
       toast.error(res.message || 'Invalid coupon')
+    }
+  }
+
+  const placeCodOrder = async () => {
+    if (inFlightRef.current || paying || verifying) return
+    if (!address) {
+      toast.error('Please select a delivery address')
+      return
+    }
+    inFlightRef.current = true
+    setPaying(true)
+    try {
+      const order = await paymentService.createCodOrder({
+        items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+        address,
+        coupon_code: appliedCode,
+      })
+      await clear()
+      toast.success(`COD order ${order.order_number} placed successfully`)
+      navigate(`/account/orders/${order.order_id}`)
+    } catch (e: any) {
+      toast.error(e.message || 'Could not place COD order')
+    } finally {
+      inFlightRef.current = false
+      setPaying(false)
     }
   }
 
@@ -338,25 +364,49 @@ export default function Checkout() {
                 <span className="font-heading font-bold text-2xl" data-testid="checkout-total">{formatINR(total)}</span>
               </div>
 
-              {!paymentService.isRazorpayConfigured && (
+              <div className="space-y-2 border-t border-line pt-4" data-testid="checkout-payment-method">
+                <p className="text-sm font-semibold">Payment Method</p>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('razorpay')}
+                  disabled={paying || verifying}
+                  className={`w-full flex items-center justify-between rounded-xl border-2 p-3 text-left transition-colors ${paymentMethod === 'razorpay' ? 'border-brand bg-brand-light/30' : 'border-line hover:border-brand/50'}`}
+                  data-testid="payment-method-razorpay"
+                >
+                  <span className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-brand" /><span><span className="block text-sm font-semibold">Online Payment</span><span className="block text-xs text-ink-muted">Pay securely using Razorpay</span></span></span>
+                  {paymentMethod === 'razorpay' && <Check className="w-4 h-4 text-brand" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cod')}
+                  disabled={paying || verifying}
+                  className={`w-full flex items-center justify-between rounded-xl border-2 p-3 text-left transition-colors ${paymentMethod === 'cod' ? 'border-brand bg-brand-light/30' : 'border-line hover:border-brand/50'}`}
+                  data-testid="payment-method-cod"
+                >
+                  <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand" /><span><span className="block text-sm font-semibold">Cash on Delivery (COD)</span><span className="block text-xs text-ink-muted">Pay cash when your order arrives</span></span></span>
+                  {paymentMethod === 'cod' && <Check className="w-4 h-4 text-brand" />}
+                </button>
+              </div>
+
+              {paymentMethod === 'razorpay' && !paymentService.isRazorpayConfigured && (
                 <div className="flex items-start gap-2 text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-3" data-testid="payment-pending">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> Payments are not configured yet. Add your Razorpay keys to enable checkout.
                 </div>
               )}
 
               <Button
-                onClick={pay}
+                onClick={paymentMethod === 'cod' ? placeCodOrder : pay}
                 loading={paying || verifying}
-                disabled={!address || paying || verifying}
+                disabled={!address || paying || verifying || (paymentMethod === 'razorpay' && !paymentService.isRazorpayConfigured)}
                 fullWidth
                 size="lg"
                 data-testid="pay-now-btn"
               >
-                <CreditCard className="w-5 h-5" />
-                {verifying ? 'Verifying Payment...' : paying ? 'Processing Payment...' : `Pay ${formatINR(total)}`}
+                {paymentMethod === 'cod' ? <ShieldCheck className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
+                {verifying ? 'Verifying Payment...' : paying ? (paymentMethod === 'cod' ? 'Placing COD Order...' : 'Processing Payment...') : paymentMethod === 'cod' ? `Place COD Order · ${formatINR(total)}` : `Pay ${formatINR(total)}`}
               </Button>
               <p className="text-xs text-ink-muted flex items-center gap-1.5 justify-center">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand" /> Secured by Razorpay
+                <ShieldCheck className="w-3.5 h-3.5 text-brand" /> {paymentMethod === 'cod' ? 'Pay when your order is delivered' : 'Secured by Razorpay'}
               </p>
             </div>
           </div>

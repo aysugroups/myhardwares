@@ -64,6 +64,20 @@ export const paymentService = {
 
   // Creates a server-validated Razorpay order (amount computed server-side).
   // Supports optional order_id to safely retry an existing unpaid order without duplicating it.
+  async createCodOrder(params: {
+    items: CheckoutItem[]
+    address: any
+    coupon_code?: string | null
+  }): Promise<{ success: boolean; order_id: string; order_number: string; total: number | null }> {
+    if (!isSupabaseConfigured) throw new Error('Store not configured')
+    const { data, error } = await supabase.functions.invoke('create-cod-order', { body: params })
+    if (error || data?.error || !data?.success || !data?.order_id) {
+      throw new Error(await extractEdgeFunctionError(error, data, 'Could not place COD order'))
+    }
+    return data
+  },
+
+  // Creates a server-validated Razorpay order (amount computed server-side).
   async createOrder(params: {
     items?: CheckoutItem[]
     address?: any
